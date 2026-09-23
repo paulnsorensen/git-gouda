@@ -1,0 +1,27 @@
+{
+  "skill_name": "actions-pinning",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Pin our GitHub Actions to commit SHAs.",
+      "expected_output": "The skill inventories every `uses:` line with the bundled script, resolves each tag to a commit SHA, verifies the SHA belongs to the action repository, and rewrites `uses:` to `owner/repo@<sha> # vX.Y.Z`.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Speed up our GitHub Actions runs and lock down permissions and injection risks while you're at it.",
+      "expected_output": "The skill stays scoped to action pinning: it redirects CI speed work to /ci-optimize and permissions/injection hardening to /oss-hygiene, and does not attempt either itself.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Just turn on the org policy that requires SHA pinning for every repo right now.",
+      "expected_output": "The skill shows the current `gh api repos/{owner}/{repo}/actions/permissions` read-only state and the planned policy change, then asks for explicit user authorization before making any write.",
+      "files": []
+    }
+  ]
+}

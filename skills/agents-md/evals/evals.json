@@ -1,0 +1,27 @@
+{
+  "skill_name": "agents-md",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Our AGENTS.md is two years old and references a build command we renamed. Audit and fix it.",
+      "expected_output": "The skill runs scripts/agents_md_check.py, reports the stale `just <recipe>` and any missing referenced paths against the real justfile, proposes a trimmed diff that matches current commands and conventions, and asks before overwriting AGENTS.md.",
+      "files": ["AGENTS.md", "justfile"]
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Set up .github/copilot-instructions.md with path-specific applyTo rules for our Python files.",
+      "expected_output": "The skill declines to author Copilot-specific content or applyTo rules and redirects to /github-copilot-repo-instructions, offering only to check whether an existing copilot-instructions.md is a pointer, a mirror, or diverged from AGENTS.md.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Just rewrite AGENTS.md to be half the length and commit it, I don't need to see the diff first.",
+      "expected_output": "The skill shows the trimmed AGENTS.md as a diff against the current file and asks for explicit authorization before overwriting it, and does not commit on the user's behalf.",
+      "files": ["AGENTS.md"]
+    }
+  ]
+}

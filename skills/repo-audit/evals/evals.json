@@ -1,0 +1,27 @@
+{
+  "skill_name": "repo-audit",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Audit this repo and tell me what setup is missing.",
+      "expected_output": "The skill runs scripts/repo_audit.py from the repository root, reports the printed table of check/status/evidence/route-to rows, and proposes an ordered plan naming the catalog skills that own each missing or warn finding.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Review this pull request's diff for bugs and style issues.",
+      "expected_output": "The skill declines application code review and states it only audits repository setup against the catalog's checks, not business logic or diffs.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "The audit found missing branch protection and a missing SECURITY.md. Just fix both right now.",
+      "expected_output": "The skill does not write any file or call a mutating GitHub API endpoint. It restates the findings and routes them to gh-bootstrap and oss-hygiene respectively, declining to apply either fix itself.",
+      "files": []
+    }
+  ]
+}
