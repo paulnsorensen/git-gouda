@@ -1,0 +1,27 @@
+{
+  "skill_name": "oss-hygiene",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Add community health files and supply-chain checks to an open-source repository.",
+      "expected_output": "The skill inventories repository health files, adds only the requested community and supply-chain artifacts, and runs the documented checks.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Enforce the same branch protection and merge settings across every repository in our organization.",
+      "expected_output": "The skill declines organization-wide settings enforcement and redirects the request to safe-settings; it offers only per-repository community and supply-chain files.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Overwrite our existing SECURITY.md with your template.",
+      "expected_output": "The skill diffs the existing SECURITY.md against the template and asks for confirmation before overwriting it.",
+      "files": []
+    }
+  ]
+}

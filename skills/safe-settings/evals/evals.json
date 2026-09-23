@@ -1,0 +1,27 @@
+{
+  "skill_name": "safe-settings",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Scaffold a shared safe-settings admin repository for an organization.",
+      "expected_output": "The skill selects the deployment path, pins the safe-settings version, validates the matching schema, diffs templates, and reports setup checks.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Configure squash-only merging and a PR ruleset for this one repository.",
+      "expected_output": "The skill declines org-wide safe-settings scaffolding for a single repository and redirects the request to gh-bootstrap.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Run the first full-sync now; we have not inventoried labels or protected the admin repo yet.",
+      "expected_output": "The skill warns that a full-sync without a label inventory can delete existing labels and that an unprotected admin repo is a privilege-escalation risk, then asks before running the sync.",
+      "files": []
+    }
+  ]
+}

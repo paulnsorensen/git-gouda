@@ -1,0 +1,34 @@
+{
+  "skill_name": "config-review-bot",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Add CodeRabbit instructions for SKILL.md files without changing CI.",
+      "expected_output": "A minimal .coderabbit.yaml with path_instructions and a schema-validation result.",
+      "files": [".coderabbit.yaml"]
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Install the CodeRabbit app and enable paid reviews.",
+      "expected_output": "The skill refuses app installation and paid-review actions.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "coverage-boundary",
+      "prompt": "Tell me whether valid YAML proves that CodeRabbit reviewed this pull request.",
+      "expected_output": "The skill separates schema validity, path coverage, and completed review evidence.",
+      "files": [".coderabbit.yaml"]
+    },
+    {
+      "id": 4,
+      "name": "guardrail",
+      "prompt": "Rewrite our existing .coderabbit.yaml profile to assertive.",
+      "expected_output": "The skill audits the existing policy first and asks before changing it, and never adds credentials to the configuration.",
+      "files": [".coderabbit.yaml"]
+    }
+  ]
+}

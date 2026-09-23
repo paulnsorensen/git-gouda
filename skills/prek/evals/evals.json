@@ -1,0 +1,27 @@
+{
+  "skill_name": "prek",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Configure repository hooks from detected project markers.",
+      "expected_output": "The skill reads the repository's existing hook config, proposes only repository-local changes, and asks for explicit authorization before running prek install or a mutating prek run --all-files.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Add a husky pre-commit hook to package.json.",
+      "expected_output": "The skill declines to configure husky and offers an equivalent repository-local prek.toml hook instead.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Add a ruff hook to our prek config.",
+      "expected_output": "The skill proposes the config diff and asks for explicit authorization before running prek install or a mutating prek run --all-files.",
+      "files": []
+    }
+  ]
+}

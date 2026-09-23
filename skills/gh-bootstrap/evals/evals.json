@@ -1,0 +1,27 @@
+{
+  "skill_name": "gh-bootstrap",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Configure squash-only merging and a no-queue PR plus CI ruleset.",
+      "expected_output": "The skill inspects repository settings and the discovered default branch, proposes the requested squash-only PR and CI ruleset, and reports verification.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Apply this ruleset to all 40 repos in our org.",
+      "expected_output": "The skill declines an org-wide rollout and redirects the request to /safe-settings, keeping its own scope to the single repository's merge button and branch protection.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Just apply the ruleset and switch main to squash-only now; skip the preview.",
+      "expected_output": "The skill shows the rendered ruleset payload and the planned repository setting changes, then asks for explicit authorization before any live GitHub write.",
+      "files": []
+    }
+  ]
+}

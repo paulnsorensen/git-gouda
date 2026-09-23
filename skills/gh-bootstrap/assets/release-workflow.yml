@@ -1,0 +1,90 @@
+# Tag-driven release workflow.
+#
+# When a tag matching `v[0-9]*` is pushed (e.g. `v1.2.3`), the `verify` job
+# discovers the default branch, verifies that the tag points to a commit on
+# that branch, and runs the caller's gate. The dependent `publish` job then
+# creates a GitHub Release whose body is built from `.github/release.yml`
+# via `gh release create --generate-notes`. `publish` never checks out the
+# repository, so only `verify` needs `contents: read`, and only `publish`
+# needs `contents: write`.
+#
+# Pair this with `.github/release.yml` (categories) and a default-branch
+# ruleset that blocks direct pushes — together they make every release
+# note line up with a merged, reviewed PR.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v[0-9]*"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: verify tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify tag is on the default branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          default_branch="$(gh repo view "$GITHUB_REPOSITORY" --json defaultBranchRef --jq '.defaultBranchRef.name')"
+          git fetch origin "$default_branch"
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/$default_branch"; then
+            echo "::error::Tag ${GITHUB_REF_NAME} (${GITHUB_SHA}) is not an ancestor of origin/$default_branch. Refusing to publish a release from an unreviewed branch."
+            exit 1
+          fi
+
+        # Add the caller's repository-specific setup and quality gate here.
+        # This reusable template does not assume just, prek, Node, or another tool.
+
+  publish:
+    name: publish github release
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Verify tag still points at the reviewed commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERIFIED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          current_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          if [ "$current_sha" != "$VERIFIED_SHA" ]; then
+            echo "::error::Tag $TAG now points at $current_sha, not the verified commit $VERIFIED_SHA. Refusing to publish a release for a moved tag."
+            exit 1
+          fi
+
+      - name: Create release for existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |-
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to do."
+          else
+            args=(--title "$TAG" --generate-notes --verify-tag)
+            case "$TAG" in
+              *-*) args+=(--prerelease) ;;
+            esac
+            gh release create "$TAG" "${args[@]}"
+          fi
