@@ -60,6 +60,19 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Verify tag still points at the reviewed commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERIFIED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          current_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          if [ "$current_sha" != "$VERIFIED_SHA" ]; then
+            echo "::error::Tag $TAG now points at $current_sha, not the verified commit $VERIFIED_SHA. Refusing to publish a release for a moved tag."
+            exit 1
+          fi
+
       - name: Create release for existing tag
         env:
           GH_TOKEN: ${{ github.token }}

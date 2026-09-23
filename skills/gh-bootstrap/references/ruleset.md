@@ -77,11 +77,12 @@ The full request body for the default ruleset created by this skill. Substitute 
 }
 ```
 
-Render this payload with `jq`, substituting the user's chosen review count into `.rules[] | select(.type=="pull_request").parameters.required_approving_review_count` and the real check names into `required_status_checks`:
+Render this payload with `jq`, substituting the user's chosen review count and the real check names. `REQUIRED_CHECKS` is a JSON array of `{"context": "<check name>"}` objects that the user supplies, one per check that must pass, e.g. `REQUIRED_CHECKS='[{"context":"ci"},{"context":"test"}]'` (see [Status check name lookup](#status-check-name-lookup)):
 
 ```bash
-jq --argjson reviews "$REVIEW_COUNT" \
-   '(.rules[] | select(.type=="pull_request") | .parameters.required_approving_review_count) = $reviews' \
+jq --argjson reviews "$REVIEW_COUNT" --argjson checks "$REQUIRED_CHECKS" \
+   '(.rules[] | select(.type=="pull_request") | .parameters.required_approving_review_count) = $reviews
+    | (.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks) = $checks' \
    "$TMPDIR/main-protection.json" > "$TMPDIR/ruleset.json"
 ```
 
@@ -130,9 +131,11 @@ SKILL_ROOT="/absolute/path/to/installed/gh-bootstrap"
 test -f "$SKILL_ROOT/SKILL.md"
 TEMPLATE="$SKILL_ROOT/assets/rulesets/main-pr-ci.json"
 
-# Substitute the user's CI check name and review count into the template before POSTing.
-jq --arg ctx "$YOUR_CHECK_NAME" --argjson reviews "$REVIEW_COUNT" \
-   '(.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[0].context) = $ctx
+# Substitute the user's review count and the real check names (a JSON
+# array the user supplies, e.g. REQUIRED_CHECKS='[{"context":"ci"}]')
+# into the template before POSTing.
+jq --argjson reviews "$REVIEW_COUNT" --argjson checks "$REQUIRED_CHECKS" \
+   '(.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks) = $checks
     | (.rules[] | select(.type=="pull_request") | .parameters.required_approving_review_count) = $reviews' \
    "$TEMPLATE" > "$TMPDIR/ruleset.json"
 
@@ -157,27 +160,54 @@ To make the file: render the JSON above with the user's chosen values into `$TMP
 
 Re-running the skill on a repo that already has a bootstrap ruleset must not create a duplicate, even if the user switches from `main: PR + CI` to `main-protection` (or back) between runs.
 
-```bash
-# Find an existing ruleset targeting the default branch under either bootstrap variant name.
-EXISTING_ID=$(gh api "repos/$REPO/rulesets" \
-  --jq '[.[] | select(.target == "branch" and (.name == "main: PR + CI" or .name == "main-protection"))][0].id // empty')
+Find the existing ruleset. The list endpoint omits `conditions` (per the GitHub REST API docs for "List rulesets for a repository"), so filter by name and target here, then `GET` each candidate by id to check `conditions.ref_name.include`:
 
-if [ -n "$EXISTING_ID" ]; then
-  # Diff the existing ruleset against the rendered payload and ask before PUT.
-  gh api "repos/$REPO/rulesets/$EXISTING_ID" \
-    --jq '{rules, bypass_actors, conditions}' > "$TMPDIR/existing.json"
-  jq '{rules, bypass_actors, conditions}' "$TMPDIR/ruleset.json" > "$TMPDIR/rendered.json"
-  diff "$TMPDIR/existing.json" "$TMPDIR/rendered.json" || true
-  # Show that diff to the user, including a variant switch (which reuses
-  # this id instead of creating a second ruleset), and wait for
-  # confirmation before continuing.
-  gh api -X PUT "repos/$REPO/rulesets/$EXISTING_ID" \
-    --input "$TMPDIR/ruleset.json"
-else
-  # Create new.
-  gh api -X POST "repos/$REPO/rulesets" \
-    --input "$TMPDIR/ruleset.json"
+```bash
+CANDIDATE_IDS=$(gh api "repos/$REPO/rulesets" \
+  --jq '[.[] | select(.target == "branch" and (.name == "main: PR + CI" or .name == "main-protection"))][].id')
+
+MATCHES=()
+for id in $CANDIDATE_IDS; do
+  targets_default=$(gh api "repos/$REPO/rulesets/$id" --jq \
+    --arg branch "refs/heads/$DEFAULT_BRANCH" \
+    '([.conditions.ref_name.include[]? | select(. == "~DEFAULT_BRANCH" or . == $branch)] | length) > 0')
+  if [ "$targets_default" = "true" ]; then
+    MATCHES+=("$id")
+  fi
+done
+
+if [ "${#MATCHES[@]}" -gt 1 ]; then
+  echo "Multiple rulesets target the default branch under a bootstrap variant name: ${MATCHES[*]}" >&2
+  echo "Stop and ask the user which one to update before continuing." >&2
+  exit 1
 fi
+
+EXISTING_ID="${MATCHES[0]:-}"
+```
+
+If an existing ruleset was found, diff it against the rendered payload:
+
+```bash
+gh api "repos/$REPO/rulesets/$EXISTING_ID" \
+  --jq '{name, target, enforcement, rules, bypass_actors, conditions}' > "$TMPDIR/existing.json"
+jq '{name, target, enforcement, rules, bypass_actors, conditions}' "$TMPDIR/ruleset.json" > "$TMPDIR/rendered.json"
+diff "$TMPDIR/existing.json" "$TMPDIR/rendered.json" || true
+```
+
+Show that diff to the user, including a variant switch (which reuses this id instead of creating a second ruleset). Stop here and wait for the user's explicit confirmation before continuing.
+
+Once the user confirms, apply the update:
+
+```bash
+gh api -X PUT "repos/$REPO/rulesets/$EXISTING_ID" \
+  --input "$TMPDIR/ruleset.json"
+```
+
+If no existing ruleset was found, create a new one:
+
+```bash
+gh api -X POST "repos/$REPO/rulesets" \
+  --input "$TMPDIR/ruleset.json"
 ```
 
 `PUT` with the same body is a no-op response from the API, so re-applying an unchanged ruleset is free. Never disable or retire the prior variant's ruleset without asking the user first.

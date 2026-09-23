@@ -115,7 +115,7 @@ The manifest flow asks for the right scopes. For reference, safe-settings needs:
 
 - **Repository permissions:** Administration (RW), Contents (RW), Metadata (R), Pull requests (RW), Issues (RW), Custom properties (RW), Actions (R), Checks (RW), Environments (RW), Statuses (RW), Variables (RW)
 - **Organization permissions:** Members (RW), Custom properties (Admin), Administration (RW)
-- **Subscribe to events:** push, repository, label, member, team, milestone, pull_request, custom_property_values, branch_protection_rule, check_run, check_suite, create, repository_ruleset
+- **Subscribe to events:** push, repository, member, team, pull_request, custom_property_values, branch_protection_rule, check_run, check_suite, create, repository_ruleset
 
 Don't hand-roll this — let the manifest flow set it up.
 

@@ -213,7 +213,7 @@ stages = ["pre-push"]
 priority = 100
 ```
 
-`stages = ["pre-push"]` alone does not install a pre-push Git shim. Add `default_install_hook_types = ["pre-commit", "pre-push"]` to the top-level config (verify the key name against the prek docs), then verify with `prek run --hook-stage pre-push`.
+`stages = ["pre-push"]` alone does not install a pre-push Git shim. Add `default_install_hook_types = ["pre-commit", "pre-push"]` to the top-level config (verify the key name against the prek docs), then ask the user to rerun the authorized `prek install` so Git installs the pre-push shim. `prek run --hook-stage pre-push` runs the stage but does not prove the shim itself is installed.
 
 ### Global filters
 

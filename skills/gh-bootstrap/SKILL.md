@@ -53,8 +53,18 @@ gh api "repos/$REPO" --jq '{
   body:     .squash_merge_commit_message,
   auto:     .allow_auto_merge
 }'
-gh api "repos/$REPO/rulesets"                                        # any rulesets already?
-gh api "repos/$REPO/branches/$DEFAULT_BRANCH/protection" 2>/dev/null # legacy branch protection?
+gh api "repos/$REPO/rulesets" # any rulesets already?
+
+# Legacy branch protection: a 404 with "Branch not protected" means none
+# exists. Any other error must stop the protocol before rulesets are applied.
+if legacy_protection=$(gh api "repos/$REPO/branches/$DEFAULT_BRANCH/protection" 2>&1); then
+  echo "$legacy_protection"
+elif [[ "$legacy_protection" == *"HTTP 404"* && "$legacy_protection" == *"Branch not protected"* ]]; then
+  echo "No legacy branch protection on $DEFAULT_BRANCH."
+else
+  echo "::error::Could not check legacy branch protection: $legacy_protection" >&2
+  exit 1
+fi
 ```
 
 Ask the user:
