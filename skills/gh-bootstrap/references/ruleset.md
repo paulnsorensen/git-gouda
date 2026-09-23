@@ -160,15 +160,15 @@ To make the file: render the JSON above with the user's chosen values into `$TMP
 
 Re-running the skill on a repo that already has a bootstrap ruleset must not create a duplicate, even if the user switches from `main: PR + CI` to `main-protection` (or back) between runs.
 
-Find the existing ruleset. The list endpoint omits `conditions` (per the GitHub REST API docs for "List rulesets for a repository"), so filter by name and target here, then `GET` each candidate by id to check `conditions.ref_name.include`:
+Find the existing ruleset. The list endpoint omits `conditions` (per the GitHub REST API docs for "List rulesets for a repository"), so filter by name and target here, then `GET` each candidate by id to check `conditions.ref_name.include`. The list is paginated, and it includes rulesets inherited from the organization by default. Read every page, and keep only repository-owned rulesets, because the repository-scoped `PUT` cannot update an organization ruleset:
 
 ```bash
-CANDIDATE_IDS=$(gh api "repos/$REPO/rulesets" \
-  --jq '[.[] | select(.target == "branch" and (.name == "main: PR + CI" or .name == "main-protection"))][].id')
+CANDIDATE_IDS=$(gh api --paginate "repos/$REPO/rulesets" \
+  --jq '.[] | select(.source_type == "Repository" and .target == "branch" and (.name == "main: PR + CI" or .name == "main-protection")) | .id')
 
 MATCHES=()
 for id in $CANDIDATE_IDS; do
-  targets_default=$(gh api "repos/$REPO/rulesets/$id" --jq \
+  targets_default=$(gh api "repos/$REPO/rulesets/$id" | jq \
     --arg branch "refs/heads/$DEFAULT_BRANCH" \
     '([.conditions.ref_name.include[]? | select(. == "~DEFAULT_BRANCH" or . == $branch)] | length) > 0')
   if [ "$targets_default" = "true" ]; then
@@ -185,12 +185,12 @@ fi
 EXISTING_ID="${MATCHES[0]:-}"
 ```
 
-If an existing ruleset was found, diff it against the rendered payload:
+If an existing ruleset was found, diff it against the rendered payload. Format both snapshots the same way (`jq -S`), so equal values produce no diff:
 
 ```bash
 gh api "repos/$REPO/rulesets/$EXISTING_ID" \
-  --jq '{name, target, enforcement, rules, bypass_actors, conditions}' > "$TMPDIR/existing.json"
-jq '{name, target, enforcement, rules, bypass_actors, conditions}' "$TMPDIR/ruleset.json" > "$TMPDIR/rendered.json"
+  | jq -S '{name, target, enforcement, rules, bypass_actors, conditions}' > "$TMPDIR/existing.json"
+jq -S '{name, target, enforcement, rules, bypass_actors, conditions}' "$TMPDIR/ruleset.json" > "$TMPDIR/rendered.json"
 diff "$TMPDIR/existing.json" "$TMPDIR/rendered.json" || true
 ```
 

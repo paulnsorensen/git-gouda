@@ -6,7 +6,7 @@
       "id": 1,
       "name": "positive",
       "prompt": "Configure repository hooks from detected project markers.",
-      "expected_output": "The skill reads the repository's existing hook config, proposes only repository-local changes, runs the configured hooks, and reports the result.",
+      "expected_output": "The skill reads the repository's existing hook config, proposes only repository-local changes, and asks for explicit authorization before running prek install or a mutating prek run --all-files.",
       "files": []
     },
     {
