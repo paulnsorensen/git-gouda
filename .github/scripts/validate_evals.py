@@ -42,6 +42,7 @@ REQUIRED_ENTRY_FIELDS: dict[str, type | tuple[type, ...]] = {
     "files": list,
 }
 NON_EMPTY_STRING_FIELDS = {"name", "prompt", "expected_output"}
+REQUIRED_NAME_CATEGORIES = ("positive", "negative-scope", "guardrail")
 
 
 def validate_file(path: Path, expected_skill_name: str | None = None) -> list[str]:
@@ -98,6 +99,11 @@ def validate_file(path: Path, expected_skill_name: str | None = None) -> list[st
                 errors.append(f"{loc}: duplicate id {entry_id}")
             seen_ids.add(entry_id)
 
+    names = {entry.get("name") for entry in evals if isinstance(entry, dict)}
+    for category in REQUIRED_NAME_CATEGORIES:
+        if category not in names:
+            errors.append(f"{path}: missing required eval named '{category}'")
+
     return errors
 
 
@@ -107,18 +113,30 @@ def _canonical_entry(**overrides: object) -> dict:
     return entry
 
 
+def _category_entries() -> list[dict]:
+    return [
+        _canonical_entry(id=0, name="positive"),
+        _canonical_entry(id=1, name="negative-scope"),
+        _canonical_entry(id=2, name="guardrail"),
+    ]
+
+
 # (label, payload, expect_errors). Each case pins one accept/reject decision
 # the reshape relied on — most critically that the pre-rename bare-array shape
 # `[{query, should_trigger}]` is now rejected, so the contract can't silently
 # regress back to two incompatible schemas.
 _SELF_TEST_CASES: list[tuple[str, object, bool]] = [
-    ("canonical evals shape", {"skill_name": "s", "evals": [_canonical_entry()]}, False),
+    ("canonical evals shape", {"skill_name": "s", "evals": _category_entries()}, False),
     (
         "extras tolerated (ralphify notes + assertions)",
         {
             "skill_name": "s",
             "notes": "n",
-            "evals": [_canonical_entry(assertions=[{"id": "x", "text": "t"}])],
+            "evals": [
+                _canonical_entry(id=0, name="positive"),
+                _canonical_entry(id=1, name="negative-scope"),
+                _canonical_entry(id=2, name="guardrail", assertions=[{"id": "x", "text": "t"}]),
+            ],
         },
         False,
     ),
@@ -140,6 +158,21 @@ _SELF_TEST_CASES: list[tuple[str, object, bool]] = [
     (
         "duplicate id",
         {"skill_name": "s", "evals": [_canonical_entry(id=1), _canonical_entry(id=1, name="b")]},
+        True,
+    ),
+    (
+        "missing positive category",
+        {"skill_name": "s", "evals": [_canonical_entry(id=0, name="negative-scope"), _canonical_entry(id=1, name="guardrail")]},
+        True,
+    ),
+    (
+        "missing negative-scope category",
+        {"skill_name": "s", "evals": [_canonical_entry(id=0, name="positive"), _canonical_entry(id=1, name="guardrail")]},
+        True,
+    ),
+    (
+        "missing guardrail category",
+        {"skill_name": "s", "evals": [_canonical_entry(id=0, name="positive"), _canonical_entry(id=1, name="negative-scope")]},
         True,
     ),
 ]

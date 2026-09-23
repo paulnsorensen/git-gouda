@@ -77,6 +77,14 @@ The full request body for the default ruleset created by this skill. Substitute 
 }
 ```
 
+Render this payload with `jq`, substituting the user's chosen review count into `.rules[] | select(.type=="pull_request").parameters.required_approving_review_count` and the real check names into `required_status_checks`:
+
+```bash
+jq --argjson reviews "$REVIEW_COUNT" \
+   '(.rules[] | select(.type=="pull_request") | .parameters.required_approving_review_count) = $reviews' \
+   "$TMPDIR/main-protection.json" > "$TMPDIR/ruleset.json"
+```
+
 What each rule buys:
 
 | Rule | Effect |
@@ -122,21 +130,16 @@ SKILL_ROOT="/absolute/path/to/installed/gh-bootstrap"
 test -f "$SKILL_ROOT/SKILL.md"
 TEMPLATE="$SKILL_ROOT/assets/rulesets/main-pr-ci.json"
 
-# Substitute the user's CI check name into the template before POSTing.
-jq --arg ctx "$YOUR_CHECK_NAME" \
-   '(.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[0].context) = $ctx' \
+# Substitute the user's CI check name and review count into the template before POSTing.
+jq --arg ctx "$YOUR_CHECK_NAME" --argjson reviews "$REVIEW_COUNT" \
+   '(.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[0].context) = $ctx
+    | (.rules[] | select(.type=="pull_request") | .parameters.required_approving_review_count) = $reviews' \
    "$TEMPLATE" > "$TMPDIR/ruleset.json"
 
 gh api -X POST "repos/$REPO/rulesets" --input "$TMPDIR/ruleset.json"
 ```
 
-Or, if updating an existing ruleset by name:
-
-```bash
-EXISTING_ID=$(gh api "repos/$REPO/rulesets" \
-  --jq '.[] | select(.name == "main: PR + CI") | .id')
-gh api -X PUT "repos/$REPO/rulesets/$EXISTING_ID" --input "$TMPDIR/ruleset.json"
-```
+Or, if updating an existing ruleset: see [Idempotent update](#idempotent-update) below — the lookup must match either bootstrap variant name, not just `main: PR + CI`, so a repo that switched variants gets updated in place instead of duplicated.
 
 Required-status-checks can be expanded — duplicate the `{ "context": "..." }` object once per CI job that should gate merges. The template ships with a single placeholder named `check`; replace it with the real check names from `gh api repos/$REPO/commits/<sha>/check-runs --jq '.check_runs[].name'`.
 
@@ -152,15 +155,22 @@ To make the file: render the JSON above with the user's chosen values into `$TMP
 
 ## Idempotent update
 
-Re-running the skill on a repo that already has the ruleset must not create a duplicate.
+Re-running the skill on a repo that already has a bootstrap ruleset must not create a duplicate, even if the user switches from `main: PR + CI` to `main-protection` (or back) between runs.
 
 ```bash
-# Find an existing ruleset by the agreed name.
+# Find an existing ruleset targeting the default branch under either bootstrap variant name.
 EXISTING_ID=$(gh api "repos/$REPO/rulesets" \
-  --jq '.[] | select(.name == "main-protection") | .id')
+  --jq '[.[] | select(.target == "branch" and (.name == "main: PR + CI" or .name == "main-protection"))][0].id // empty')
 
 if [ -n "$EXISTING_ID" ]; then
-  # Update in place.
+  # Diff the existing ruleset against the rendered payload and ask before PUT.
+  gh api "repos/$REPO/rulesets/$EXISTING_ID" \
+    --jq '{rules, bypass_actors, conditions}' > "$TMPDIR/existing.json"
+  jq '{rules, bypass_actors, conditions}' "$TMPDIR/ruleset.json" > "$TMPDIR/rendered.json"
+  diff "$TMPDIR/existing.json" "$TMPDIR/rendered.json" || true
+  # Show that diff to the user, including a variant switch (which reuses
+  # this id instead of creating a second ruleset), and wait for
+  # confirmation before continuing.
   gh api -X PUT "repos/$REPO/rulesets/$EXISTING_ID" \
     --input "$TMPDIR/ruleset.json"
 else
@@ -170,7 +180,7 @@ else
 fi
 ```
 
-`PUT` with the same body is a no-op response from the API, so re-applying an unchanged ruleset is free.
+`PUT` with the same body is a no-op response from the API, so re-applying an unchanged ruleset is free. Never disable or retire the prior variant's ruleset without asking the user first.
 
 ## Common adjustments
 
@@ -185,7 +195,7 @@ fi
 If the user explicitly asks for classic protection (e.g. older GHE), the equivalent endpoint is:
 
 ```bash
-gh api -X PUT "repos/$REPO/branches/main/protection" \
+gh api -X PUT "repos/$REPO/branches/$DEFAULT_BRANCH/protection" \
   --input "$TMPDIR/protection.json"
 ```
 
@@ -216,7 +226,7 @@ with a body like:
 Classic branch protection's merge-queue toggle lives at:
 
 ```bash
-gh api -X POST "repos/$REPO/branches/main/protection/required_pull_request_reviews/merge-queue" 2>/dev/null || true
+gh api -X POST "repos/$REPO/branches/$DEFAULT_BRANCH/protection/required_pull_request_reviews/merge-queue" 2>/dev/null || true
 ```
 
 …which is fragile and undocumented. Prefer rulesets unless the user has a concrete reason not to.

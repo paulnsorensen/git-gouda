@@ -14,7 +14,9 @@ repository:
   # Visibility and feature toggles. Comment out fields you want to leave
   # at GitHub's default — every key here is enforced.
   has_issues: true
-  has_projects: true
+  # has_projects errors when the target organization has Projects disabled.
+  # Confirm Projects support before enabling this org-wide.
+  # has_projects: true
   has_wiki: false
 
   # Merge button: squash only, PR title → commit subject, PR body → commit body.
@@ -34,37 +36,42 @@ repository:
 
 # Org-wide labels. Drives the auto-generated release notes categories
 # in `.github/release.yml` of each repo (if present).
-labels:
-  include:
-    - name: bug
-      color: "d73a4a"
-      description: Something isn't working
-    - name: enhancement
-      color: "a2eeef"
-      description: New feature or request
-    - name: documentation
-      color: "0075ca"
-      description: Improvements or additions to documentation
-    - name: dependencies
-      color: "0366d6"
-      description: Pull requests that update a dependency file
-    - name: breaking-change
-      color: "b60205"
-      description: A change that breaks backwards compatibility
-    - name: chore
-      color: "fef2c0"
-      description: Repo maintenance, no functional change
-    - name: ignore-for-release
-      color: "ededed"
-      description: Exclude this PR from auto-generated release notes
-  # Preserve labels that match these patterns during reconciliation.
-  exclude:
-    - '^release'
+#
+# labels reconciliation deletes every unlisted label org-wide during
+# full-sync. Enable only after the operator inventories existing labels
+# across the org and approves the include/exclude list below.
+# labels:
+#   include:
+#     - name: bug
+#       color: "d73a4a"
+#       description: Something isn't working
+#     - name: enhancement
+#       color: "a2eeef"
+#       description: New feature or request
+#     - name: documentation
+#       color: "0075ca"
+#       description: Improvements or additions to documentation
+#     - name: dependencies
+#       color: "0366d6"
+#       description: Pull requests that update a dependency file
+#     - name: breaking-change
+#       color: "b60205"
+#       description: A change that breaks backwards compatibility
+#     - name: chore
+#       color: "fef2c0"
+#       description: Repo maintenance, no functional change
+#     - name: ignore-for-release
+#       color: "ededed"
+#       description: Exclude this PR from auto-generated release notes
+#   # Preserve labels whose name matches these patterns during reconciliation.
+#   exclude:
+#     - name: '^release'
 
-# Repo name validator. Refuses to apply settings to repos whose name
-# doesn't match this pattern. Tighten this for your org's convention.
+# Repo name validator. Only adds a validation-error topic to repos whose
+# name fails this pattern; it does not block settings reconciliation. Use
+# the deployment's restrictedRepos configuration to exclude a repo from sync.
 validator:
-  pattern: "[a-z0-9][a-z0-9-]*"
+  pattern: "^[a-z0-9][a-z0-9-]*$"
 
 # Default-branch ruleset — required checks + no force-push. Add a merge queue
 # only after confirming GitHub eligibility for the target organization.

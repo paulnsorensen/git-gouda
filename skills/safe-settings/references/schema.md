@@ -142,8 +142,11 @@ labels:
     - name: enhancement
       oldname: Help Wanted        # renames an existing label
       color: "326699"
+  # Preserve labels during reconciliation. Each entry is an object with a
+  # `name` regex; the plugin filters by `item.name`, so a bare string is
+  # silently ignored.
   exclude:
-    - '^release'                  # regex — preserve labels matching this
+    - name: '^release'
 ```
 
 ## `collaborators` and `teams`

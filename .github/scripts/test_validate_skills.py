@@ -45,6 +45,10 @@ class ValidateSkillsTest(unittest.TestCase):
     def _write_skill(self, name: str, parent: str = "skills") -> None:
         self._write(f"{parent}/{name}/SKILL.md", VALID_BODY.format(name=name))
 
+    def _write_readme(self, *names: str) -> None:
+        rows = "".join(f"| [{name}](skills/{name}/SKILL.md) |\n" for name in names)
+        self._write("README.md", rows)
+
     def _run(self) -> tuple[int, str, str]:
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
@@ -53,6 +57,7 @@ class ValidateSkillsTest(unittest.TestCase):
 
     def test_valid_skill_passes(self) -> None:
         self._write_skill("foo")
+        self._write_readme("foo")
         rc, out, _ = self._run()
         self.assertEqual(rc, 0)
         self.assertIn("validated 1", out)
@@ -72,6 +77,7 @@ class ValidateSkillsTest(unittest.TestCase):
         # Guard against a copy-pasted plugin tree silently passing validation.
         self._write_skill("foo")
         self._write_skill("bar", parent="plugins/other-plugin/skills")
+        self._write_readme("foo")
         rc, _, err = self._run()
         self.assertEqual(rc, 1)
         self.assertIn("plugins/other-plugin/skills/bar/SKILL.md", err)
@@ -79,6 +85,7 @@ class ValidateSkillsTest(unittest.TestCase):
 
     def test_nested_subskill_fails(self) -> None:
         self._write("skills/foo/bar/SKILL.md", VALID_BODY.format(name="bar"))
+        self._write_readme()
         rc, _, err = self._run()
         self.assertEqual(rc, 1)
         self.assertIn("nested sub-skills are not supported", err)
@@ -87,12 +94,14 @@ class ValidateSkillsTest(unittest.TestCase):
         self._write_skill("foo")
         self._write(".github/SKILL.md", VALID_BODY.format(name="github"))
         self._write(".cache/plugins/x/skills/y/SKILL.md", VALID_BODY.format(name="y"))
+        self._write_readme("foo")
         rc, out, _ = self._run()
         self.assertEqual(rc, 0)
         self.assertIn("validated 1", out)
 
     def test_missing_frontmatter(self) -> None:
         self._write("skills/foo/SKILL.md", "no frontmatter here\n")
+        self._write_readme("foo")
         rc, _, err = self._run()
         self.assertEqual(rc, 1)
         self.assertIn("missing or malformed YAML frontmatter", err)
@@ -103,6 +112,7 @@ class ValidateSkillsTest(unittest.TestCase):
             "skills/foo/SKILL.md",
             '---\nname: foo\ndescription: "unterminated\n---\n',
         )
+        self._write_readme("foo")
         rc, _, err = self._run()
         self.assertEqual(rc, 1)
         self.assertIn("invalid YAML frontmatter", err)
@@ -112,24 +122,28 @@ class ValidateSkillsTest(unittest.TestCase):
             "skills/foo/SKILL.md",
             "---\n- just\n- a\n- list\n---\n",
         )
+        self._write_readme("foo")
         rc, _, err = self._run()
         self.assertEqual(rc, 1)
         self.assertIn("must be a YAML mapping", err)
 
     def test_name_dir_mismatch(self) -> None:
         self._write("skills/foo/SKILL.md", VALID_BODY.format(name="bar"))
+        self._write_readme("foo")
         rc, _, err = self._run()
         self.assertEqual(rc, 1)
         self.assertIn("does not match parent directory", err)
 
     def test_invalid_kebab_case(self) -> None:
         self._write("skills/Foo_Bar/SKILL.md", VALID_BODY.format(name="Foo_Bar"))
+        self._write_readme("Foo_Bar")
         rc, _, err = self._run()
         self.assertEqual(rc, 1)
         self.assertIn("not kebab-case", err)
 
     def test_missing_description(self) -> None:
         self._write("skills/foo/SKILL.md", "---\nname: foo\n---\n\nbody\n")
+        self._write_readme("foo")
         rc, _, err = self._run()
         self.assertEqual(rc, 1)
         self.assertIn("missing required key 'description'", err)
@@ -139,6 +153,7 @@ class ValidateSkillsTest(unittest.TestCase):
             "skills/foo/SKILL.md",
             "---\nname: foo\ndescription: x\nbogus: 1\n---\n",
         )
+        self._write_readme("foo")
         rc, _, err = self._run()
         self.assertEqual(rc, 1)
         self.assertIn("disallowed frontmatter keys", err)
@@ -150,6 +165,7 @@ class ValidateSkillsTest(unittest.TestCase):
             "skills/foo/SKILL.md",
             f"---\nname: foo\ndescription: {desc}\n---\n",
         )
+        self._write_readme("foo")
         rc, out, _ = self._run()
         self.assertEqual(rc, 0)
         self.assertIn("validated 1", out)
@@ -160,6 +176,7 @@ class ValidateSkillsTest(unittest.TestCase):
             "skills/foo/SKILL.md",
             f"---\nname: foo\ndescription: {desc}\n---\n",
         )
+        self._write_readme("foo")
         rc, _, err = self._run()
         self.assertEqual(rc, 1)
         self.assertIn("'description' is 1025 characters", err)
@@ -170,9 +187,21 @@ class ValidateSkillsTest(unittest.TestCase):
             "skills/foo/SKILL.md",
             "---\nname: foo\ndescription: x\nlicense: MIT\nallowed-tools: Read,Write\n---\n",
         )
+        self._write_readme("foo")
         rc, out, _ = self._run()
         self.assertEqual(rc, 0)
         self.assertIn("validated 1", out)
+
+    def test_missing_bundled_link_via_main_fails(self) -> None:
+        self._write(
+            "skills/foo/SKILL.md",
+            "---\nname: foo\ndescription: test\n---\n\nbody\n",
+        )
+        self._write("skills/foo/references/guide.md", "[missing](nope.md)\n")
+        self._write_readme("foo")
+        rc, _, err = self._run()
+        self.assertEqual(rc, 1)
+        self.assertIn("bundled resource link does not exist", err)
 
 
 BODY_SKILL = """---
@@ -390,5 +419,43 @@ class ResourceAndCatalogTest(unittest.TestCase):
             files.append(root / "skills" / "bar" / "SKILL.md")
             files[1].write_text("---\nname: bar\ndescription: test\n---\n", encoding="utf-8")
             self.assertTrue(validate_skills.validate_catalog(root, files))
+
+    def test_catalog_missing_readme_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            errors = validate_skills.validate_catalog(root, [])
+            self.assertEqual(len(errors), 1)
+            self.assertIn("missing skill catalog", errors[0])
+
+    def test_catalog_duplicate_entry_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "skills" / "foo").mkdir(parents=True)
+            (root / "README.md").write_text(
+                "| [foo](skills/foo/SKILL.md) |\n| [foo](skills/foo/SKILL.md) |\n",
+                encoding="utf-8",
+            )
+            files = [root / "skills" / "foo" / "SKILL.md"]
+            errors = validate_skills.validate_catalog(root, files)
+            self.assertTrue(any("duplicate catalog entry" in e for e in errors))
+
+    def test_catalog_mislabeled_entry_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "skills" / "foo").mkdir(parents=True)
+            (root / "README.md").write_text("| [wrong-label](skills/foo/SKILL.md) |\n", encoding="utf-8")
+            files = [root / "skills" / "foo" / "SKILL.md"]
+            errors = validate_skills.validate_catalog(root, files)
+            self.assertTrue(any("does not match skills/foo/SKILL.md" in e for e in errors))
+
+    def test_catalog_matching_returns_no_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "skills" / "foo").mkdir(parents=True)
+            (root / "README.md").write_text("| [foo](skills/foo/SKILL.md) |\n", encoding="utf-8")
+            files = [root / "skills" / "foo" / "SKILL.md"]
+            self.assertEqual(validate_skills.validate_catalog(root, files), [])
+
+
 if __name__ == "__main__":
     unittest.main()

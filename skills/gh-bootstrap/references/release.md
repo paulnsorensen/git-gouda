@@ -14,7 +14,7 @@ The template lives in `assets/release.yml`. Its shape:
 changelog:
   exclude:
     labels: [...]      # PRs with these labels are dropped from notes
-    authors: [...]     # PRs from these authors are dropped (e.g. dependabot)
+    authors: [...]     # PRs from these authors are dropped (e.g. dependabot[bot])
   categories:
     - title: <bucket name>
       labels: [...]    # PRs with any of these labels go in this bucket
@@ -54,11 +54,15 @@ Two common adjustments:
 
 ### Author exclusions
 
-`exclude.authors` drops PRs from listed accounts entirely. The template excludes `dependabot`, `github-actions`, and `renovate`. If you actually want dependency PRs in release notes, remove `dependabot` here and keep the `dependencies` category.
+`exclude.authors` drops PRs from listed accounts entirely. The template excludes `dependabot` and `dependabot[bot]` (Dependabot's actual login is `dependabot[bot]`; the plain form is kept for other tooling that reports the unsuffixed name), along with `github-actions` and `renovate`. If you actually want dependency PRs in release notes, remove both `dependabot` entries here and keep the `dependencies` category.
 
 ## `.github/workflows/release.yml`
 
-The template lives in `assets/release-workflow.yml`. It triggers on `push` to tags matching `v[0-9]*` and creates a GitHub Release with auto-generated notes. The reusable template does not assume `just`, `prek`, Node, or another project-specific gate; add caller setup and its gate after checkout when required.
+The template lives in `assets/release-workflow.yml`. It triggers on `push` to tags matching `v[0-9]*`, verifies the tag in a `verify` job, then creates a GitHub Release with auto-generated notes in a dependent `publish` job. The reusable template does not assume `just`, `prek`, Node, or another project-specific gate; add caller setup and its gate inside the `verify` job, after checkout.
+
+### Job split
+
+`verify` (`contents: read`, `persist-credentials: false`) checks out the repo, confirms the tag is on the default branch, and runs the caller's gate. `publish` (`contents: write`, `needs: verify`) does not check out the repository — it only calls `gh release create`. This keeps the job that runs repository code from ever holding write access to the repo.
 
 ### Tag-on-default-branch guard
 
@@ -81,6 +85,8 @@ This pairs with the default-branch ruleset: if direct pushes to the default bran
 
 The template checks whether the GitHub Release already exists before creating it. Re-running the workflow for an existing release exits successfully instead of duplicating or replacing the release.
 
+The template also adds `--prerelease` when the tag contains a `-` (e.g. `v1.0.0-rc1`), so a pre-release tag doesn't publish as the repo's Latest release.
+
 ### Action SHA pinning
 
 The template pins `actions/checkout` to a full commit SHA, not a floating tag like `@v4`. This is supply-chain hygiene: a maintainer of a popular action can retag `v4` to a malicious commit and any workflow using `@v4` picks it up on the next run. SHA pins don't.
@@ -101,7 +107,7 @@ The `# v6.0.2` trailing comment is what tells the next reader (or Dependabot) wh
 
 ### Permissions
 
-`permissions: { contents: write }` is the minimum — it's needed to create the release. Don't grant more (no `pull-requests`, no `id-token`) unless you're adding artifact attestations or PR comments to the workflow. Keep the principle of least privilege.
+The workflow grants no permissions at the top level (`permissions: {}`). The `verify` job requests only `contents: read` — it checks out the repo and runs the caller's gate, so it should never hold write access. The `publish` job requests `contents: write`, the minimum needed to create the release, and does not check out the repository. Don't grant more (no `pull-requests`, no `id-token`) unless you're adding artifact attestations or PR comments to the workflow. Keep the principle of least privilege.
 
 ### Concurrency
 

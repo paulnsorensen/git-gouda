@@ -20,15 +20,17 @@ jobs:
     name: analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
     permissions:
+      contents: read
+      actions: read
       security-events: write
       packages: read
     strategy:
       fail-fast: false
       matrix:
-        # Replace with the languages your repo uses. Supported:
-        # actions, c-cpp, csharp, go, java-kotlin, javascript-typescript,
-        # python, ruby, swift.
-        language: [javascript-typescript]
+        # Substitute {{CODEQL_LANGUAGES}} with the detected languages.
+        # Supported: actions, c-cpp, csharp, go, java-kotlin,
+        # javascript-typescript, python, ruby, swift.
+        language: ["{{CODEQL_LANGUAGES}}"]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 

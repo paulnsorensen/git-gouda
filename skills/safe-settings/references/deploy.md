@@ -6,7 +6,7 @@ Authoritative sources:
 
 - <https://github.com/github-community-projects/safe-settings/blob/2.1.17/docs/deploy.md>
 - <https://github.com/github-community-projects/safe-settings/blob/2.1.17/docs/github-action.md>
-- <https://github.com/github-community-projects/safe-settings/blob/2.1.17/docs/awslambda.md>
+- <https://github.com/github-community-projects/safe-settings/blob/2.1.17/docs/AWS-README.md>
 
 ## Two deployment shapes
 
@@ -66,7 +66,7 @@ Optional:
 
 | Target | Doc |
 |---|---|
-| AWS Lambda | `awslambda.md` (uses the SafeSettings-Template repo) |
+| AWS Lambda | `AWS-README.md` (uses the SafeSettings-Template repo) |
 | Docker / Docker Compose | `deploy.md` |
 | Kubernetes | `deploy.md` (build the Docker image, deploy as a Deployment + Service) |
 | Heroku | `deploy.md` |
@@ -113,9 +113,9 @@ Install the App on the org and grant it access to all repositories.
 
 The manifest flow asks for the right scopes. For reference, safe-settings needs:
 
-- **Repository permissions:** Administration (RW), Contents (RW), Metadata (R), Pull requests (RW), Issues (RW), Custom properties (RW)
-- **Organization permissions:** Members (R), Custom properties (RW), Administration (RW)
-- **Subscribe to events:** push, repository, label, member, team, milestone, pull_request, custom_property_values
+- **Repository permissions:** Administration (RW), Contents (RW), Metadata (R), Pull requests (RW), Issues (RW), Custom properties (RW), Actions (R), Checks (RW), Environments (RW), Statuses (RW), Variables (RW)
+- **Organization permissions:** Members (RW), Custom properties (Admin), Administration (RW)
+- **Subscribe to events:** push, repository, label, member, team, milestone, pull_request, custom_property_values, branch_protection_rule, check_run, check_suite, create, repository_ruleset
 
 Don't hand-roll this — let the manifest flow set it up.
 

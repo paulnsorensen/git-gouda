@@ -14,7 +14,7 @@ from pathlib import Path
 
 def _files_for_snapshot(root: Path) -> list[Path]:
     result = subprocess.run(
-        ["git", "ls-files", "-co", "--exclude-standard", "-z"],
+        ["git", "ls-files", "-c", "-z"],
         cwd=root,
         check=True,
         capture_output=True,

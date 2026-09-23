@@ -32,7 +32,8 @@ This sits next to `/gh-bootstrap` and answers a different question: gh-bootstrap
 | Merge button, branch protection, release-notes config | `/gh-bootstrap` |
 | Community files, supply-chain checks, OSSF posture | **`/oss-hygiene`** (this skill) |
 | Org-wide settings as code across many repos | `/safe-settings` |
-| Per-task PR / issue / CI ops | `/gh` |
+
+Per-task PR / issue / CI ops are out of scope for this catalog.
 
 Run `/gh-bootstrap` first (so `main` is locked), then `/oss-hygiene` (so contributors can find their way in and supply-chain checks gate PRs).
 
@@ -131,6 +132,7 @@ Ask the user — **once, as a single consolidated question** with all decisions 
 - CodeQL applicability — does the repo contain code in a CodeQL-supported language (`actions`, `c-cpp`, `csharp`, `go`, `java-kotlin`, `javascript-typescript`, `python`, `ruby`, `swift`)? If not, skip the CodeQL workflow. **Surface a recommendation, don't force a question** when the only matches are CI-helper scripts (e.g. `.github/scripts/*.py`) — those are not project code, and the default should be skip with the user opting in.
 - FUNDING.yml — does the user accept sponsorship? If yes, ask for platform + handle (GitHub Sponsors, Buy Me a Coffee, Ko-fi, OpenCollective, etc.).
 - CODEOWNERS — only suggest when the repo has multiple maintainers. For solo, skip.
+- Contact email — ask for the security/conduct reporting address. If the user gives none, do not write `CODE_OF_CONDUCT.md` or `SECURITY.md` with a literal `{{CONTACT_EMAIL}}` placeholder; stop and ask before scaffolding those two files.
 
 ### 2. Scaffold the community files
 
@@ -159,6 +161,8 @@ Diff against the existing file (if present). If different, ask before overwritin
 | `assets/.github/workflows/scorecard.yml` | `.github/workflows/scorecard.yml` | private repo (badge needs public) |
 | `assets/.github/workflows/codeql.yml` | `.github/workflows/codeql.yml` | repo has no CodeQL-supported language |
 
+When scaffolding `codeql.yml`, substitute `{{CODEQL_LANGUAGES}}` in the `language` matrix with the CodeQL-supported languages detected in the repo (comma-separated, quoted, e.g. `"python", "go"`).
+
 `dependabot.yml` is configured with the language packages detected in the repo (look for `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `Gemfile`, `composer.json`, `pom.xml`, etc.) plus a `github-actions` ecosystem entry to keep workflow action versions current.
 
 **Manifest detection scope.** Only count manifests in project source roots — *not* under `.github/scripts/`, `.devcontainer/`, `tools/ci/`, or other CI-helper paths. A `pyproject.toml` under a project root is real; a hard-coded `pip install foo==1.2.3` line in a workflow is not, and Dependabot can't track it without a real top-level manifest. When the only language presence is CI-helper code, **skip that ecosystem** and add a one-line comment in the generated `dependabot.yml` explaining why (e.g. "no top-level Python manifest; the only Python is in `.github/scripts/`"). This mirrors the same heuristic used for CodeQL applicability in step 1.
@@ -178,7 +182,12 @@ gh api -X PUT "repos/$REPO/vulnerability-alerts"
 gh api -X PATCH "repos/$REPO" \
   -F security_and_analysis[secret_scanning][status]=enabled \
   -F security_and_analysis[secret_scanning_push_protection][status]=enabled
+
+# Private vulnerability reporting
+gh api -X PUT "repos/$REPO/private-vulnerability-reporting"
 ```
+
+If private vulnerability reporting cannot be enabled, require a real contact email from the user before writing `SECURITY.md` — do not fall back to a placeholder reporting channel.
 
 For private repos these may 403 unless GitHub Code Security is paid for — surface and skip rather than fail.
 
@@ -212,6 +221,7 @@ Re-read the community profile and the workflow files. Print a small summary:
 
 ```bash
 gh api "repos/$REPO/community/profile" --jq '{health_percentage, missing: ([.files | to_entries[] | select(.value == null) | .key])}'
+gh api "repos/$REPO/private-vulnerability-reporting"
 ls .github/workflows/ | sort
 ```
 

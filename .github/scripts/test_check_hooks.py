@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import io
 import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 
 import check_hooks
@@ -99,11 +101,16 @@ class HookCheckTest(unittest.TestCase):
         external_temporary = tempfile.TemporaryDirectory()
         try:
             external = Path(external_temporary.name) / "external.txt"
-            external.write_text("outside", encoding="utf-8")
+            external.write_text("outside\n", encoding="utf-8")
             link = root / "linked.txt"
             link.symlink_to(external)
-            self.assertNotEqual(check_hooks.run_checks(root), 0)
-            self.assertEqual(external.read_text(encoding="utf-8"), "outside")
+            subprocess.run(["git", "add", "linked.txt"], cwd=root, check=True)
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                result = check_hooks.run_checks(root)
+            self.assertNotEqual(result, 0)
+            self.assertIn("refusing symlink in checkout snapshot: linked.txt", stderr.getvalue())
+            self.assertEqual(external.read_text(encoding="utf-8"), "outside\n")
         finally:
             external_temporary.cleanup()
             temporary.cleanup()

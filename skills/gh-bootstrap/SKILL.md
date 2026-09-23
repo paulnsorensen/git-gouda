@@ -12,15 +12,15 @@ description: >
   "scaffold releases", "set up release tagging", or invokes /gh-bootstrap
   on a fresh or loosely-configured GitHub repository. Idempotent — safe to
   re-run on already-configured repos to bring missing pieces in line.
-  Distinct from /gh, which handles per-task PR / issue / CI ops; this
-  skill is for one-time repo policy.
+  This skill covers one-time repo policy, not per-task GitHub
+  operations, local git commands, or project task running.
 ---
 
 # gh-bootstrap
 
 One-shot repository configuration for the **merge-queue + squash-merge + auto-release-notes** pattern.
 
-This sits next to `/gh` (per-task GitHub ops) and answers a different question: how should this repo be configured in the first place?
+This is one-time repo policy, distinct from per-task GitHub operations: how should this repo be configured in the first place?
 
 ## What gets configured
 
@@ -41,7 +41,9 @@ Before changing anything, read the runway and confirm with the user:
 
 ```bash
 gh auth status
-gh repo view --json nameWithOwner,visibility,defaultBranchRef,isPrivate
+REPO="$(gh repo view --json nameWithOwner --jq '.nameWithOwner')"
+gh repo view "$REPO" --json nameWithOwner,visibility,defaultBranchRef,isPrivate
+DEFAULT_BRANCH="$(gh repo view "$REPO" --json defaultBranchRef --jq '.defaultBranchRef.name')"
 gh api "repos/$REPO" --jq '{
   squash:   .allow_squash_merge,
   merge:    .allow_merge_commit,
@@ -51,8 +53,8 @@ gh api "repos/$REPO" --jq '{
   body:     .squash_merge_commit_message,
   auto:     .allow_auto_merge
 }'
-gh api "repos/$REPO/rulesets"                                # any rulesets already?
-gh api "repos/$REPO/branches/main/protection" 2>/dev/null    # legacy branch protection?
+gh api "repos/$REPO/rulesets"                                        # any rulesets already?
+gh api "repos/$REPO/branches/$DEFAULT_BRANCH/protection" 2>/dev/null # legacy branch protection?
 ```
 
 Ask the user:
@@ -108,7 +110,7 @@ Both variants share the same shape:
 
 Default to the `main: PR + CI` variant unless the user explicitly asks for the merge queue. It's the simpler shape and the one that matches everyday solo work.
 
-**Idempotency:** list rulesets first, look for one with the agreed name. If present, `PUT` to the same id; if absent, `POST` a new one. Never duplicate.
+**Idempotency:** list rulesets and look for one targeting the default branch whose name matches either bootstrap variant (`main: PR + CI` or `main-protection`). If found, `GET` it, diff its `rules`, `bypass_actors`, and `conditions` against the rendered payload, show the diff, and ask the user before `PUT`-ing. When the user switches variants, reuse that ruleset's id for the `PUT` instead of creating a second one, and ask before disabling or retiring anything from the prior variant. If absent, `POST` a new one. Never create a duplicate ruleset for the default branch.
 
 ### 4. Scaffold the release-notes config
 
@@ -121,10 +123,10 @@ If `.github/release.yml` already exists, diff it against the template and ask be
 If the user opted in, copy `assets/release-workflow.yml` to `.github/workflows/release.yml`. The workflow:
 
 - Triggers on `push` to `v*` tags
-- Discovers the default branch and refuses to publish if the tag is not its ancestor — so unreviewed branches can't ship a release
-- Calls `gh release create "$TAG" --generate-notes`, which builds the body from the categories in `.github/release.yml`
+- Runs a `verify` job (`contents: read`, `persist-credentials: false`) that checks out the repo, discovers the default branch, and refuses to continue if the tag is not its ancestor — so unreviewed branches can't ship a release. Add the caller's setup and quality gate to this job.
+- Runs a `publish` job (`contents: write`, `needs: verify`, no checkout) that calls `gh release create "$TAG" --generate-notes --verify-tag`, adding `--prerelease` when the tag contains a `-`
 
-Action SHAs are pinned (not floating tags) for supply-chain hygiene. `references/release.md` documents which actions are pinned and how to refresh them when a new version comes out.
+Splitting `verify` from `publish` keeps the job that checks out and gates repository code from ever holding `contents: write`. Action SHAs are pinned (not floating tags) for supply-chain hygiene. `references/release.md` documents which actions are pinned and how to refresh them when a new version comes out.
 
 ### 6. Verify and report
 
@@ -135,7 +137,7 @@ gh api "repos/$REPO" --jq '{
   squash: .allow_squash_merge, merge: .allow_merge_commit, rebase: .allow_rebase_merge,
   delete: .delete_branch_on_merge, title: .squash_merge_commit_title, body: .squash_merge_commit_message
 }'
-gh api "repos/$REPO/rulesets" --jq '.[] | {id, name, enforcement, target}'
+gh api "repos/$REPO/rulesets" --jq '.[] | {id, name, enforcement, target, reviews: ([.rules[] | select(.type=="pull_request") | .parameters.required_approving_review_count][0])}'
 test -f .github/release.yml          && echo "release.yml present"
 test -f .github/workflows/release.yml && echo "release workflow present"
 ```
@@ -151,17 +153,17 @@ The summary should call out:
 The skill is designed to be re-run safely on a partially-configured repo:
 
 - **Repo settings:** `PATCH` is idempotent — re-applying the same body is a no-op response.
-- **Rulesets:** lookup by name, `PUT` if it exists, `POST` if not. Never duplicate.
+- **Rulesets:** lookup by either bootstrap variant name targeting the default branch. If found, diff and ask before `PUT`; reuse its id when switching variants. `POST` if absent. Never duplicate.
 - **`.github/release.yml`:** diff before overwriting; ask if the content differs.
 - **Release workflow:** same — diff and ask.
 - **Never delete:** if a previous run left an artifact (e.g. a legacy classic branch-protection rule alongside the new ruleset), surface it for the user to decide. Don't quietly remove it.
 
 ## What this skill is NOT for
 
-- Per-task GitHub ops (PRs, issues, CI status, releases for a specific tag) — use `/gh`
-- Local git operations — use `/plate`
+- Per-task GitHub ops (PRs, issues, CI status, releases for a specific tag) — out of scope
+- Local git operations — out of scope
 - Pre-commit hooks — use `/prek`
-- Project task running — use `/justfile`
+- Project task running — out of scope
 - Designing a CI pipeline — out of scope; this skill writes one specific release workflow if asked, no more
 - Backfilling status check names into a repo whose CI doesn't emit them yet — it tells you what names to use, you wire them in your CI
 

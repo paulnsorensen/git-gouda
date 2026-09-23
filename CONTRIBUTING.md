@@ -8,7 +8,7 @@ This repository ships repository-only agent skills. Keep changes focused on repo
     cd git-gouda
     just build
 
-Install the tools listed in justfile before running the gate.
+Install just >= 1.44 (stable `[script]` support) and the other tools listed in .github/actions/setup-gate/action.yml before running the gate.
 
 ## Add or change a skill
 

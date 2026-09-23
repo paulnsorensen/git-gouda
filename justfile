@@ -14,16 +14,17 @@ _gate mode:
         else echo "✗ $name"; printf '%s\n' "$output"; exit 1; fi
     }
     if [ "{{mode}}" = "fix" ]; then
-        step markdown-fix markdownlint-cli2 --fix "**/*.md" "#.cheese/**" "#.cache/**"
+        step markdown-fix markdownlint-cli2 --fix "**/*.md" "#.cheese/**" "#.cache/**" "#.context/**" "#.serena/**"
         step yaml-fix yamlfmt .
     else
-        step markdown markdownlint-cli2 "**/*.md" "#.cheese/**" "#.cache/**"
+        step markdown markdownlint-cli2 "**/*.md" "#.cheese/**" "#.cache/**" "#.context/**" "#.serena/**"
         step yaml yamlfmt -lint .
     fi
     step yaml-lint yamllint -c .yamllint.yml .
     step tests python3 .github/scripts/test_validate_skills.py
     step hook-tests python3 .github/scripts/test_check_hooks.py
     step eval-tests python3 .github/scripts/test_validate_evals.py
+    step template-tests python3 .github/scripts/test_templates.py
     step skills python3 .github/scripts/validate_skills.py
     step evals python3 .github/scripts/validate_evals.py
     if [ "{{mode}}" = "fix" ]; then

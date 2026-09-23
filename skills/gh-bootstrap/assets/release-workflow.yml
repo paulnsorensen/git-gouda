@@ -1,9 +1,12 @@
 # Tag-driven release workflow.
 #
-# When a tag matching `v[0-9]*` is pushed (e.g. `v1.2.3`), this workflow
+# When a tag matching `v[0-9]*` is pushed (e.g. `v1.2.3`), the `verify` job
 # discovers the default branch, verifies that the tag points to a commit on
-# that branch, then creates a GitHub Release whose body is built from
-# `.github/release.yml` via `gh release create --generate-notes`.
+# that branch, and runs the caller's gate. The dependent `publish` job then
+# creates a GitHub Release whose body is built from `.github/release.yml`
+# via `gh release create --generate-notes`. `publish` never checks out the
+# repository, so only `verify` needs `contents: read`, and only `publish`
+# needs `contents: write`.
 #
 # Pair this with `.github/release.yml` (categories) and a default-branch
 # ruleset that blocks direct pushes — together they make every release
@@ -16,22 +19,24 @@ on:
     tags:
       - "v[0-9]*"
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: publish github release
+  verify:
+    name: verify tag
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Verify tag is on the default branch
         env:
@@ -45,9 +50,16 @@ jobs:
             exit 1
           fi
 
-      # Add the caller's repository-specific setup and quality gate here.
-      # This reusable template does not assume just, prek, Node, or another tool.
+        # Add the caller's repository-specific setup and quality gate here.
+        # This reusable template does not assume just, prek, Node, or another tool.
 
+  publish:
+    name: publish github release
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
       - name: Create release for existing tag
         env:
           GH_TOKEN: ${{ github.token }}
@@ -57,5 +69,9 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists; nothing to do."
           else
-            gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag
+            args=(--title "$TAG" --generate-notes --verify-tag)
+            case "$TAG" in
+              *-*) args+=(--prerelease) ;;
+            esac
+            gh release create "$TAG" "${args[@]}"
           fi

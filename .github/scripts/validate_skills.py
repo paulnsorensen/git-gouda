@@ -149,10 +149,18 @@ def validate(path: Path) -> list[str]:
 def validate_catalog(root: Path, skill_files: list[Path]) -> list[str]:
     readme = root / "README.md"
     if not readme.is_file():
-        return []
-    catalog = {name for _, name in CATALOG_RE.findall(readme.read_text(encoding="utf-8"))}
+        return ["README.md: missing skill catalog (source of truth)"]
+    rows = CATALOG_RE.findall(readme.read_text(encoding="utf-8"))
+    errors: list[str] = []
+    seen: set[str] = set()
+    for label, name in rows:
+        if name in seen:
+            errors.append(f"README.md: duplicate catalog entry for {name!r}")
+        seen.add(name)
+        if label != name:
+            errors.append(f"README.md: catalog label {label!r} does not match skills/{name}/SKILL.md")
+    catalog = seen
     actual = {p.parent.name for p in skill_files}
-    errors = []
     if catalog != actual:
         errors.append(f"README.md: skill catalog drift (catalog={sorted(catalog)}, files={sorted(actual)})")
     return errors

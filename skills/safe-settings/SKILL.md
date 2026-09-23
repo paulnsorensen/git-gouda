@@ -11,10 +11,11 @@ description: >
   protection, rulesets, labels, teams, environments, and collaborators
   from one admin repo. Scaffolds the admin-repo layout (`settings.yml` +
   `suborgs/` + `repos/`), the GitHub App installation steps, and a
-  scheduled `full-sync` GitHub Actions workflow. Distinct from /gh
-  (per-task ops) and /gh-bootstrap (one-shot `gh api` config of a single
-  repo) — this skill is for **org-scale settings as code** that
-  reconciles continuously.
+  scheduled `full-sync` GitHub Actions workflow. Distinct from /gh-bootstrap
+  (one-shot `gh api` config of a single repo) — this skill is for
+  **org-scale settings as code** that reconciles continuously. Not for
+  per-task GitHub ops (PRs, issues, CI status) or local git work — those
+  are out of this catalog's scope.
 ---
 
 # safe-settings
@@ -29,7 +30,7 @@ Use this skill when an org wants to manage repository policy declaratively at sc
 |---|---|
 | Single repo, one-time policy lockdown | `/gh-bootstrap` (gh CLI, imperative) |
 | Many repos, central policy that must stay in sync, drift detection, dry-run on PR | safe-settings (this skill) |
-| Per-task GitHub ops (PRs, issues, CI status) | `/gh` |
+| Per-task GitHub ops (PRs, issues, CI status) | out of this catalog's scope |
 
 safe-settings is **the right answer when policy is shared across repos** and you want PRs + dry-run gating on policy changes themselves. It's overkill for a single repo.
 
@@ -112,10 +113,11 @@ The skill defaults to the GHA cron path. Only switch to hosted if the user asks.
 Both deployment paths need a GitHub App installation. Walk the user through the manifest flow:
 
 1. Clone safe-settings locally: `git clone https://github.com/github-community-projects/safe-settings`
-2. `cp .env.example .env`, set `GH_ORG=<org>`
-3. `npm install && npm run dev`
-4. Open the printed URL → "Register a GitHub App" → install on the org
-5. Save these values:
+2. `cd safe-settings`
+3. `cp .env.example .env`, set `GH_ORG=<org>`
+4. `npm install && npm run dev`
+5. Open the printed URL → "Register a GitHub App" → install on the org
+6. Save these values:
    - **App ID** → `vars.SAFE_SETTINGS_APP_ID` (repo or org variable)
    - **Private key** (downloaded `.pem`) → `secrets.SAFE_SETTINGS_PRIVATE_KEY` (paste the file contents)
    - **Client ID** → `vars.SAFE_SETTINGS_GITHUB_CLIENT_ID`
@@ -151,7 +153,7 @@ Check the run output. The first `full-sync` reconciles repositories immediately 
 safe-settings can provide two safety nets, but the deployment must wire them:
 
 - **Hosted-app PR dry-run** — the hosted Probot webhook path can post a status check for settings changes. The default cron and `workflow_dispatch` workflow does not provide this PR guardrail. Report it as unavailable unless the hosted path is configured.
-- **Validators** — `assets/settings.yml` includes a `validator.pattern` for repo names. Customize it for the org's naming convention so safe-settings refuses to apply settings to mis-named repos.
+- **Validators** — `assets/settings.yml` includes a `validator.pattern` for repo names. It only adds a `validation-error` topic to a mis-named repo; it does not block settings reconciliation. To exclude a repo from sync, configure the deployment's `restrictedRepos` setting instead.
 
 For a more rigorous setup, add `enforcement: evaluate` on new rulesets to test them in shadow mode before flipping to `active`. See `references/schema.md`.
 
@@ -168,8 +170,7 @@ Re-running the skill on a partially-set-up admin repo should fill in only the mi
 ## What this skill is NOT for
 
 - Setting policy on a single one-off repo with no org behind it — use `/gh-bootstrap`
-- Running PR / issue / CI ops — use `/gh`
-- Local git work — use `/plate`
+- Running PR / issue / CI ops, or local git work — out of this catalog's scope
 - Authoring new safe-settings rules upstream — this skill consumes the released app, doesn't develop it
 - Migrating from the older `github/settings` app — safe-settings is the supported successor; the skill assumes you're starting fresh or already off `github/settings`
 
@@ -177,9 +178,11 @@ Re-running the skill on a partially-set-up admin repo should fill in only the mi
 
 - The admin repo path matters. By default safe-settings looks for config under `.github/` in `ADMIN_REPO`; if you put it elsewhere, set `CONFIG_PATH` to the directory.
 - The GitHub App needs **admin** access to manage settings on member repos. A user-installed token won't cut it — it has to be the App, installed on the org.
-- `full-sync` via GHA touches every repo in the org on every run. For huge orgs (>1000 repos) the run can take an hour and burn Actions minutes — use the hosted Probot path or scope by suborg.
+- `full-sync` via GHA visits every repo installed for the App on every run — suborg files only select which override applies per repo, they do not narrow the set of repos visited. For huge orgs (>1000 repos) the run can take an hour and burn Actions minutes — configure the deployment's `restrictedRepos` setting or install the App on fewer repos to cut the workload.
 - The same YAML key can mean different things at different layers. `branches` at org level applies to every repo; at repo level it overrides only that repo. The merge order is deep — read `references/schema.md` before writing complex overrides.
 - The org-level `settings.yml` asset ships with rulesets disabled and a narrow `repository_name.include: ["example-repo"]` placeholder. Replace it with an observed, narrow selector and obtain explicit authorization before activation; active org rulesets cannot be weakened by lower-scope files.
+- `settings.yml` ships its `labels` block commented out. It reconciles by deleting every unlisted label org-wide during `full-sync`. Before enabling it, inventory existing labels across the org and get the operator's approval for the include/exclude list.
+- Before the first sync, protect the admin repo itself: an active ruleset on its default branch with at least one required review and code-owner review for the config paths, plus a `CODEOWNERS` file, and confirm who has write access. The admin repo is the trust boundary — anyone who can push to it controls every repo in the org through the App.
 - `force_create: true` in a `repos/<name>.yml` will create the repo if it doesn't exist. This is powerful and dangerous — use it deliberately.
 - safe-settings does not unset every API field by default. `labels.exclude` preserves matching labels; it does not delete them. To remove a collaborator, you typically delete the entry and run sync. Read the schema before assuming "remove from YAML" means "remove from GitHub".
 - The merge queue is a `merge_queue` rule inside a `rulesets` entry — not a top-level toggle. Same shape as `/gh-bootstrap`'s ruleset payload, just expressed in YAML and applied org-wide.

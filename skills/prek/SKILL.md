@@ -186,7 +186,7 @@ Before writing config, check the community hook repos for their current recommen
 
 ### 6. Install and verify
 
-After writing config:
+Ask the user before running these commands. For an audit or a proposed config change, stop at the proposed diff and do not run either command unless the user authorizes installation or a mutating run:
 
 ```bash
 prek install
@@ -212,6 +212,8 @@ always_run = true
 stages = ["pre-push"]
 priority = 100
 ```
+
+`stages = ["pre-push"]` alone does not install a pre-push Git shim. Add `default_install_hook_types = ["pre-commit", "pre-push"]` to the top-level config (verify the key name against the prek docs), then verify with `prek run --hook-stage pre-push`.
 
 ### Global filters
 

@@ -56,9 +56,10 @@ usually indicates active investment in supply-chain hardening.
   Solo repos with `0` required reviews will score lower here even
   though the ruleset is active.
 - `Contributors` rewards multi-org diversity; small projects score 0.
-- `Dependency-Update-Tool` flips to passing as soon as Dependabot
-  opens its first PR — installing the YAML is necessary but not
-  sufficient until it has a chance to run.
+- `Dependency-Update-Tool` passes as soon as Scorecard detects a
+  dependency-update configuration (such as `dependabot.yml`) — it does
+  not require Dependabot to open a PR. Review the Dependabot updates
+  after they start arriving.
 
 These are features, not bugs. Don't try to game them.
 

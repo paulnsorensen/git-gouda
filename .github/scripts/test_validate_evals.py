@@ -20,7 +20,6 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-import yaml
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -32,7 +31,9 @@ REPO_ROOT = SCRIPT_DIR.parent.parent
 VALID_EVALS = {
     "skill_name": "foo",
     "evals": [
-        {"id": 0, "name": "a", "prompt": "p", "expected_output": "e", "files": []},
+        {"id": 0, "name": "positive", "prompt": "p", "expected_output": "e", "files": []},
+        {"id": 1, "name": "negative-scope", "prompt": "p", "expected_output": "e", "files": []},
+        {"id": 2, "name": "guardrail", "prompt": "p", "expected_output": "e", "files": []},
     ],
 }
 
@@ -119,7 +120,7 @@ class ValidateEvalsMainTest(unittest.TestCase):
 
     def test_aggregates_across_files(self) -> None:
         self._write_eval("good", {**VALID_EVALS, "skill_name": "good"})
-        self._write_eval("alsogood", {"skill_name": "alsogood", "evals": [VALID_EVALS["evals"][0]]})
+        self._write_eval("alsogood", {"skill_name": "alsogood", "evals": VALID_EVALS["evals"]})
         rc, out, _ = self._run()
         self.assertEqual(rc, 0)
         self.assertIn("validated 2", out)
@@ -150,13 +151,48 @@ class SelfTestPassesTest(unittest.TestCase):
         )
 
 
+class NameCategoryCoverageTest(unittest.TestCase):
+    """main() must report a specific error per missing name category."""
 
-class ImportedTemplateTest(unittest.TestCase):
-    def test_safe_settings_exclude_uses_pinned_schema_shape(self) -> None:
-        path = REPO_ROOT / "skills" / "safe-settings" / "assets" / "settings.yml"
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        excluded = data["labels"]["exclude"]
-        self.assertEqual(excluded, ["^release"])
-        self.assertTrue(all(isinstance(item, str) for item in excluded))
+    def setUp(self) -> None:
+        self._cwd = Path.cwd()
+        self.tmpdir = Path(tempfile.mkdtemp(prefix="validate-evals-"))
+        self.addCleanup(self._restore)
+        os.chdir(self.tmpdir)
+
+    def _restore(self) -> None:
+        os.chdir(self._cwd)
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def _write_eval(self, skill: str, payload: object) -> None:
+        path = self.tmpdir / "skills" / skill / "evals" / "evals.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload), encoding="utf-8")
+
+    def _run(self) -> tuple[int, str, str]:
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            rc = validate_evals.main()
+        return rc, out.getvalue(), err.getvalue()
+
+    def test_missing_positive_category_fails(self) -> None:
+        self._write_eval("foo", {"skill_name": "foo", "evals": VALID_EVALS["evals"][1:]})
+        rc, _, err = self._run()
+        self.assertEqual(rc, 1)
+        self.assertIn("missing required eval named 'positive'", err)
+
+    def test_missing_negative_scope_category_fails(self) -> None:
+        self._write_eval("foo", {"skill_name": "foo", "evals": [VALID_EVALS["evals"][0], VALID_EVALS["evals"][2]]})
+        rc, _, err = self._run()
+        self.assertEqual(rc, 1)
+        self.assertIn("missing required eval named 'negative-scope'", err)
+
+    def test_missing_guardrail_category_fails(self) -> None:
+        self._write_eval("foo", {"skill_name": "foo", "evals": VALID_EVALS["evals"][:2]})
+        rc, _, err = self._run()
+        self.assertEqual(rc, 1)
+        self.assertIn("missing required eval named 'guardrail'", err)
+
+
 if __name__ == "__main__":
     unittest.main()

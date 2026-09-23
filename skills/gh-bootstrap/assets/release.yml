@@ -24,6 +24,7 @@ changelog:
       - skip-changelog
     authors:
       - dependabot
+      - dependabot[bot]
       - github-actions
       - renovate
 
