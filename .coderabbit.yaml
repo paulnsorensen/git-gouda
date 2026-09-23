@@ -1,0 +1,35 @@
+# Repository-local CodeRabbit policy.
+# Schema: https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  profile: chill
+  path_instructions:
+    - path: "skills/**/SKILL.md"
+      instructions: |
+        Check scope, trigger phrases, portability, safety boundaries, and
+        references to bundled resources. Do not duplicate Markdown, YAML, or
+        CI formatter checks.
+    - path: "skills/**/evals/evals.json"
+      instructions: |
+        Check positive behavior, negative scope, and safety guardrails.
+        Confirm that evals do not claim semantic execution.
+    - path: "skills/**/assets/**"
+      instructions: |
+        Check templates for safe defaults, pinned actions, and placeholders.
+    - path: "skills/**/references/**"
+      instructions: |
+        Check claims against linked authoritative documentation and pin-specific behavior.
+    - path: "skills/**/assets/.github/**"
+      instructions: |
+        Check hidden repository templates and workflows for safe defaults, pinned actions, and placeholders.
+    - path: ".github/scripts/**"
+      instructions: |
+        Check validator behavior, failure messages, and tests for malformed
+        frontmatter, evals, resources, and catalog drift.
+    - path: ".github/workflows/**"
+      instructions: |-
+        Check least-privilege permissions, pinned action SHAs, and alignment
+        with just ci. Do not duplicate formatter findings.
+    - path: ".github/actions/**"
+      instructions: |-
+        Check composite action inputs, least-privilege behavior, pinned tools,
+        checksums, and alignment with just ci. Do not duplicate formatter findings.

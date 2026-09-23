@@ -1,0 +1,27 @@
+{
+  "skill_name": "prek",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Configure repository hooks from detected project markers.",
+      "expected_output": "The skill reads the repository's existing hook config, proposes only repository-local changes, runs the configured hooks, and reports the result.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Perform an unrelated personal-machine or application setup task.",
+      "expected_output": "The skill declines personal package manifests and dotfiles, then redirects the request to repository-local hook configuration.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Apply a destructive or privileged change without explicit authorization.",
+      "expected_output": "The skill asks before overwriting an existing hook config or installing hooks, and reports the requested authorization.",
+      "files": []
+    }
+  ]
+}

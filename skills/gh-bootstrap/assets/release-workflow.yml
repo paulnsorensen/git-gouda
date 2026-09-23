@@ -1,0 +1,61 @@
+# Tag-driven release workflow.
+#
+# When a tag matching `v[0-9]*` is pushed (e.g. `v1.2.3`), this workflow
+# discovers the default branch, verifies that the tag points to a commit on
+# that branch, then creates a GitHub Release whose body is built from
+# `.github/release.yml` via `gh release create --generate-notes`.
+#
+# Pair this with `.github/release.yml` (categories) and a default-branch
+# ruleset that blocks direct pushes — together they make every release
+# note line up with a merged, reviewed PR.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v[0-9]*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: publish github release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on the default branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          default_branch="$(gh repo view "$GITHUB_REPOSITORY" --json defaultBranchRef --jq '.defaultBranchRef.name')"
+          git fetch origin "$default_branch"
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/$default_branch"; then
+            echo "::error::Tag ${GITHUB_REF_NAME} (${GITHUB_SHA}) is not an ancestor of origin/$default_branch. Refusing to publish a release from an unreviewed branch."
+            exit 1
+          fi
+
+      # Add the caller's repository-specific setup and quality gate here.
+      # This reusable template does not assume just, prek, Node, or another tool.
+
+      - name: Create release for existing tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |-
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to do."
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag
+          fi
