@@ -113,6 +113,8 @@ so it doesn't become the default download or the `releases/latest` target.
 GitHub made immutable releases generally available on 2025-10-28 (see the
 [GitHub changelog](https://github.blog/changelog/2025-10-28-immutable-releases-are-now-generally-available/)).
 When a repository turns this on, publishing a release locks its assets and
-tag and attaches signed Sigstore attestations. A published immutable release
-cannot be edited, so review the notes and the attached assets before you
-publish, not after.
+tag and attaches signed Sigstore attestations. The
+[immutable releases documentation](https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/immutable-releases)
+states that you can still edit the title and release notes of a published
+immutable release. The assets and the tag stay fixed, so review them before
+you publish, not after.

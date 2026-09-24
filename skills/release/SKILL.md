@@ -30,7 +30,7 @@ This sits next to `/gh-bootstrap` and answers a different question. `/gh-bootstr
 | One-time release-notes config + tag-driven workflow | `/gh-bootstrap` |
 | Deciding the version, drafting notes, tagging, publishing | **`/release`** (this skill) |
 
-If the repo has a tag-driven release workflow (from `/gh-bootstrap`), pushing the tag is enough — the workflow publishes the release. This skill still decides the version and (optionally) drafts curated notes; it just stops after the tag push and reports that the workflow takes over. Otherwise it publishes the release itself with `gh release create`.
+If the repo has a tag-driven release workflow (from `/gh-bootstrap`), pushing the tag is enough — the workflow publishes the release. This skill still decides the version and (optionally) drafts curated notes. After the tag push, it does not run `gh release create`. It waits for the workflow, then applies approved curated notes. Otherwise it publishes the release itself with `gh release create`.
 
 ## Protocol
 
@@ -40,21 +40,18 @@ Refuse to release from a dirty or diverged state — a release tag is permanent 
 
 ```bash
 git fetch --tags origin
-BRANCH=$(git branch --show-current)
 DEFAULT=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)
 git diff-index --quiet HEAD || { echo "uncommitted changes — commit or stash first"; exit 1; }
-[ "$BRANCH" = "$DEFAULT" ] || echo "WARNING: not on $DEFAULT (on $BRANCH) — releases normally tag the default branch"
-read -r AHEAD BEHIND < <(git rev-list --left-right --count "origin/$DEFAULT...HEAD")
-[ "$BEHIND" = 0 ] || { echo "HEAD is $BEHIND commits behind origin/$DEFAULT — pull/rebase before tagging"; exit 1; }
+[ "$(git rev-parse HEAD)" = "$(git rev-parse "origin/$DEFAULT")" ] || { echo "HEAD is not the tip of origin/$DEFAULT — check out and update it first"; exit 1; }
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 ```
 
 Confirm with the user:
 
-- The commit to tag (default: tip of the default branch).
+- The commit to tag. Only the tip of `origin/$DEFAULT` is taggable.
 - The last release tag (`$LAST_TAG`) — the baseline for the version bump and the notes range. If the repo has no tags yet, this is the first release.
 
-Stop and tell the user — don't tag — if the tree is dirty, or `HEAD` is behind `origin/$DEFAULT`.
+Stop and tell the user — don't tag — if the tree is dirty or `HEAD` is not the tip of `origin/$DEFAULT`.
 
 ### 2. Decide the version
 
@@ -89,9 +86,15 @@ When curating, derive the entries from the commit log, not from imagination — 
 
 If `CHANGELOG.md` exists, keep it in sync. Most repos follow [Keep a Changelog](https://keepachangelog.com): move the `## [Unreleased]` entries under a new `## [VERSION] - YYYY-MM-DD` heading, leave a fresh empty `Unreleased`, and update the comparison links at the bottom. If there's no changelog and the user doesn't want one, skip this — don't introduce a changelog they didn't ask for.
 
+The tag must include the changelog entry. Commit the changelog change and land it on the default branch through the repository's normal merge flow. Push only with explicit user approval. Then repeat steps 1-3 on the new tip of the default branch. A squash merge gives a new SHA, so tag the tip that step 1 checks, not your local commit. Compare `git log "${LAST_TAG:+$LAST_TAG..}HEAD"` with the drafted notes. Stop and tell the user if commits other than the changelog commit landed.
+
 ### 5. Tag and push
 
 Annotated tag (carries a message, author, and date — lightweight tags don't, and `git describe` treats them differently). Tag the agreed commit, then push only the tag.
+
+If a tag-driven release workflow exists (for example `.github/workflows/release.yml`), read its `gh release create` arguments before you assume generated notes. The `/gh-bootstrap` workflow publishes generated notes only (`--generate-notes`). If the workflow publishes generated notes and step 3 chose curated or hybrid notes, tell the user before you push the tag.
+
+Ask for explicit user approval before you push the tag.
 
 ```bash
 VERSION=v1.3.0
@@ -99,11 +102,13 @@ git tag -a "$VERSION" -m "$VERSION"        # add -s to GPG-sign if the repo sign
 git push origin "$VERSION"
 ```
 
-If a tag-driven release workflow exists (`.github/workflows/release.yml`), **stop here** — the workflow publishes the release on tag push. Report the workflow run URL and skip step 6.
+If a tag-driven release workflow exists, skip step 6. Wait for the workflow, then apply approved curated notes with `gh release edit "$VERSION" --notes-file NOTES.md`. Apply the notes only with user approval. Report the workflow run URL.
 
 ### 6. Publish the GitHub release
 
 Only when there's no tag-driven workflow doing it for you.
+
+Ask for explicit user approval before you run `gh release create`.
 
 ```bash
 # Auto-generated notes:
@@ -125,16 +130,18 @@ Attach build artifacts by listing them after the tag (`gh release create "$VERSI
 
 GitHub immutable releases became generally available on 2025-10-28. When the
 repository enables them, a published release keeps its assets and tag fixed
-and carries signed Sigstore attestations. A published immutable release
-cannot be edited, so verify the notes and the attached assets before you
-publish. See `references/release-notes.md` for the changelog citation.
+and carries signed Sigstore attestations. You can still edit the title and
+notes of a published immutable release, but you cannot change its assets or
+move its tag. Verify the attached assets and the tagged commit before you
+publish. See `references/release-notes.md` for the citations.
 
 ### 7. Verify and report
 
 Read the published state back — don't claim success from the create command's exit code alone.
 
 ```bash
-gh release view "$VERSION" --json tagName,isLatest,isDraft,isPrerelease,url --jq .
+gh release view "$VERSION" --json tagName,isDraft,isPrerelease,url --jq .
+gh release list --json tagName,isLatest --jq '.[] | select(.isLatest) | .tagName'
 git ls-remote --tags origin "$VERSION"
 ```
 

@@ -22,14 +22,25 @@ _gate mode:
     step() { local n=$1; shift; local o
         if o=$("$@" 2>&1); then echo "✓ $n"
         else echo "✗ $n"; printf '%s\n' "$o"; exit 1; fi; }
+    # Ratchet: fail below the committed .coverage-baseline; only `build` raises it.
+    ratchet() {
+        [[ $1 =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "no coverage value: '$1'"; return 1; }
+        local cur=$1 base
+        base=$(cat .coverage-baseline 2>/dev/null || echo 0)
+        awk -v c="$cur" -v b="$base" 'BEGIN{exit !(c>=b)}' ||
+            { echo "Coverage regression: $cur% < $base%"; return 1; }
+        if [ "{{mode}}" = "fix" ]; then echo "$cur" > .coverage-baseline; fi
+    }
     if [ "{{mode}}" = "fix" ]; then
         step format cargo fmt --all
     else
         step format cargo fmt --all -- --check
     fi
     step clippy cargo clippy --all-targets --all-features -- -D warnings
-    # cargo-llvm-cov runs the tests and enforces the threshold in one pass.
-    step test cargo llvm-cov --all-features --workspace --fail-under-lines 80 --fail-under-functions 70
+    # cargo-llvm-cov runs the tests, enforces the floor, and writes the summary.
+    step test cargo llvm-cov --all-features --workspace --fail-under-lines 80 --fail-under-functions 70 \
+        --json --summary-only --output-path target/llvm-cov-summary.json
+    step ratchet ratchet "$(jq '.data[0].totals.lines.percent' target/llvm-cov-summary.json)"
 
 # Format code
 fmt:
@@ -93,24 +104,13 @@ cov-check:
     cargo llvm-cov --all-features --workspace \
         --fail-under-lines 80 \
         --fail-under-functions 70
-
-# Ratchet: never let overall coverage regress (reads/writes .coverage-baseline)
-cov-ratchet:
-    #!/usr/bin/env bash
-    cargo llvm-cov --all-features --workspace --json --summary-only \
-        > /tmp/llvm-cov.json
-    CURRENT=$(jq '.data[0].totals.lines.percent' /tmp/llvm-cov.json)
-    BASELINE=$(cat .coverage-baseline 2>/dev/null || echo 0)
-    awk -v c="$CURRENT" -v b="$BASELINE" 'BEGIN{exit !(c>=b)}' \
-        && echo "$CURRENT" > .coverage-baseline \
-        || { echo "Coverage regression: $CURRENT% < $BASELINE%"; exit 1; }
 ```
 
 ## Coverage notes
 
-- **Per-file thresholds**: not native in cargo-llvm-cov as of 2026 (issue #3693). The ratchet approach is the best available alternative.
+- **Per-file thresholds**: cargo-llvm-cov 0.8.6 and later support `--fail-under-file-lines <MIN>`. It fails when any file has line coverage below MIN, for example `cargo llvm-cov --workspace --fail-under-file-lines 70`. Older versions have no per-file gate; use the ratchet instead.
 - **cargo-llvm-cov over cargo-tarpaulin**: faster, LLVM-native, better JSON/lcov output, and actively maintained. Use tarpaulin only if the project already depends on it.
-- Commit `.coverage-baseline` to source control so CI enforces the ratchet.
+- Commit `.coverage-baseline`. The `ci` gate fails when coverage drops below it, and the `build` gate raises it.
 
 ## Notes
 

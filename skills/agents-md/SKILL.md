@@ -76,10 +76,34 @@ python3 skills/agents-md/scripts/agents_md_check.py [path/to/AGENTS.md]
 Reports bytes, lines, the heading map, every referenced `just <recipe>`
 checked against a nearby `justfile`, every referenced repo-relative path,
 and the mirror status of `CLAUDE.md`, `.github/copilot-instructions.md`, and
-`GEMINI.md`. Flag a file over ~200 lines as a soft readability warning; a
-file over 32 KiB fails outright — that is OpenAI Codex's hard combined-file
-cap, and Codex truncates silently past it
+`GEMINI.md`. Flag a file over ~200 lines as a soft readability warning. The
+script also sums the `AGENTS.md` chain from the repository root to each
+directory at or below the checked file. A chain over 32 KiB fails outright.
+OpenAI Codex concatenates that chain, truncates the file that crosses
+32 KiB, and drops every file after it
 (<https://learn.chatgpt.com/docs/agent-configuration/agents-md>).
+
+Root discovery and skip rules follow Codex:
+
+- The root is the nearest directory at or above the checked file that
+  contains `.git`. With no `.git`, each chain is the checked file only,
+  and the report says "file directory" instead of "repository root".
+- Per directory, `AGENTS.override.md` counts when present, else `AGENTS.md`.
+- Sizes are raw on-disk bytes, so CRLF line endings count in full.
+- The walk skips dot directories, `node_modules`, broken symlinks, and any
+  subdirectory with its own `.git` (a nested project root).
+
+Exit codes: 0 when no chain breaches the cap, no mirror has diverged, and
+every referenced recipe and path exists. 1 on a cap breach, on any drift
+(diverged mirror, missing recipe, or missing path), or when the file does
+not exist.
+
+`--json` prints these fields: `path`, `bytes`, `chain_bytes`, `chain_dir`
+(the deepest directory of the largest chain, relative to the root),
+`root_marker` (true when a `.git` root was found), `lines`, `byte_cap`,
+`cap_breach`, `near_cap`, `line_warn`, `headings`, `justfile`,
+`referenced_just_recipes`, `missing_recipes`, `referenced_paths`,
+`missing_paths`, `mirrors`, `diverged_mirrors`, and `drift`.
 
 ### 3. Content audit
 
@@ -162,5 +186,6 @@ reporting done.
 - `references/harness-matrix.md` — which harness reads which file, with
   precedence and size caps, cited.
 - `references/content-checklist.md` — what belongs in AGENTS.md and what
-  does not, cited.
+  does not. Harness-behavior claims are cited; the lists are this skill's
+  guidance.
 - `assets/AGENTS.md.template` — a short, sectioned starting template.

@@ -6,18 +6,35 @@ commands checked against a nearby justfile, referenced repo-relative paths,
 and the mirror status of CLAUDE.md, .github/copilot-instructions.md, and
 GEMINI.md relative to the canonical AGENTS.md.
 
-Caps: OpenAI Codex enforces a hard 32 KiB combined-file limit and truncates
-silently past it (see references/harness-matrix.md). A line count over
-~200 is a soft readability flag, not a hard cap.
+Caps: OpenAI Codex concatenates AGENTS.md files from the repository root down
+to the working directory. It truncates the file that crosses 32 KiB and drops
+every file after it (see references/harness-matrix.md). The script sums every
+root-to-directory chain that ends at or below the checked file and applies
+the cap to the largest one. A line count over ~200 is a soft readability
+flag, not a hard cap.
 
-Exit 0 when the file is under the byte cap and no mirror has diverged.
-Exit 1 on a cap breach or drift. `--json` prints a machine-readable report.
-`--self-test` runs embedded fixtures instead of scanning a real tree.
+Root discovery and skip rules match Codex:
+- The root is the nearest directory at or above the checked file that
+  contains `.git`. With no `.git`, each chain is the checked file only.
+- Per directory, `AGENTS.override.md` counts when present, else `AGENTS.md`.
+- Sizes are raw on-disk bytes, so CRLF line endings count in full.
+- The walk skips dot directories, `node_modules`, broken symlinks, and any
+  subdirectory that contains its own `.git` (a nested project root).
+
+Exit 0 when every chain is under the byte cap, no mirror has diverged, and
+every referenced recipe and path exists. Exit 1 on a cap breach, on any
+drift (diverged mirror, missing recipe, or missing path), or when the file
+does not exist. `--json` prints the report dict: path, bytes, chain_bytes,
+chain_dir (relative to the root), root_marker, lines, byte_cap, cap_breach,
+near_cap, line_warn, headings, justfile, referenced_just_recipes,
+missing_recipes, referenced_paths, missing_paths, mirrors, diverged_mirrors,
+and drift. `--self-test` runs embedded fixtures instead of scanning a tree.
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -29,6 +46,7 @@ from typing import Any
 BYTE_CAP = 32 * 1024
 NEAR_CAP_RATIO = 0.9
 LINE_WARN = 200
+INSTRUCTION_NAMES = ("AGENTS.override.md", "AGENTS.md")
 MIRROR_NAMES = ("CLAUDE.md", ".github/copilot-instructions.md", "GEMINI.md")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*)$", re.MULTILINE)
 BACKTICK_RE = re.compile(r"`([^`\n]+)`")
@@ -44,6 +62,47 @@ def _find_justfile(start: Path) -> Path | None:
             if candidate.is_file():
                 return candidate
     return None
+
+
+def _repo_root(start: Path) -> Path | None:
+    for directory in [start, *start.parents]:
+        if (directory / ".git").exists():
+            return directory
+    return None
+
+
+def _instruction_bytes(directory: Path) -> int:
+    for name in INSTRUCTION_NAMES:
+        candidate = directory / name
+        if candidate.is_file():
+            return candidate.stat().st_size
+    return 0
+
+
+def _largest_chain(agents_path: Path, own_bytes: int) -> tuple[int, str, bool]:
+    base = agents_path.parent.resolve()
+    base_bytes = _instruction_bytes(base) or own_bytes
+    root = _repo_root(base)
+    if root is None:
+        return base_bytes, ".", False
+    prefix = sum(_instruction_bytes(d) for d in base.parents if d.is_relative_to(root))
+    totals = {base: prefix + base_bytes}
+    best_bytes, best_dir = totals[base], base
+    for dirpath, dirnames, filenames in os.walk(base):
+        directory = Path(dirpath)
+        dirnames[:] = [
+            d for d in dirnames
+            if not d.startswith(".") and d != "node_modules" and not (directory / d / ".git").exists()
+        ]
+        if directory == base:
+            continue
+        total = totals[directory.parent]
+        if any(name in filenames for name in INSTRUCTION_NAMES):
+            total += _instruction_bytes(directory)
+        totals[directory] = total
+        if total > best_bytes:
+            best_bytes, best_dir = total, directory
+    return best_bytes, best_dir.relative_to(root).as_posix(), True
 
 
 def _justfile_recipes(justfile: Path) -> set[str]:
@@ -113,7 +172,7 @@ def _mirror_status(agents_text: str, mirror_path: Path) -> str:
 
 def check(agents_path: Path) -> dict[str, Any]:
     text = agents_path.read_text(encoding="utf-8")
-    raw_bytes = len(text.encode("utf-8"))
+    raw_bytes = agents_path.stat().st_size
     lines = text.count("\n") + (1 if text and not text.endswith("\n") else 0)
     base = agents_path.parent
 
@@ -128,13 +187,17 @@ def check(agents_path: Path) -> dict[str, Any]:
     mirrors = {name: _mirror_status(text, base / name) for name in MIRROR_NAMES}
     diverged = sorted(name for name, status in mirrors.items() if status == "diverged")
 
-    cap_breach = raw_bytes > BYTE_CAP
-    near_cap = raw_bytes > BYTE_CAP * NEAR_CAP_RATIO
+    chain_bytes, chain_dir, root_marker = _largest_chain(agents_path, raw_bytes)
+    cap_breach = chain_bytes > BYTE_CAP
+    near_cap = chain_bytes > BYTE_CAP * NEAR_CAP_RATIO
     line_warn = lines > LINE_WARN
 
     return {
         "path": str(agents_path),
         "bytes": raw_bytes,
+        "chain_bytes": chain_bytes,
+        "chain_dir": chain_dir,
+        "root_marker": root_marker,
         "lines": lines,
         "byte_cap": BYTE_CAP,
         "cap_breach": cap_breach,
@@ -154,10 +217,13 @@ def check(agents_path: Path) -> dict[str, Any]:
 
 def _print_report(report: dict[str, Any]) -> None:
     print(f"{report['path']}: {report['bytes']} bytes, {report['lines']} lines")
+    if report["chain_bytes"] != report["bytes"]:
+        start = "repository root" if report["root_marker"] else "file directory"
+        print(f"Combined chain: {report['chain_bytes']} bytes ({start} to {report['chain_dir']})")
     if report["cap_breach"]:
-        print(f"FAIL cap breach: {report['bytes']} bytes exceeds the {report['byte_cap']} byte (32 KiB) Codex cap")
+        print(f"FAIL cap breach: {report['chain_bytes']} bytes exceeds the {report['byte_cap']} byte (32 KiB) Codex combined cap")
     elif report["near_cap"]:
-        print(f"WARN near cap: {report['bytes']} of {report['byte_cap']} bytes")
+        print(f"WARN near cap: {report['chain_bytes']} of {report['byte_cap']} bytes")
     if report["line_warn"]:
         print(f"WARN {report['lines']} lines exceeds the ~200 line soft ceiling")
     print("Headings:")
@@ -258,7 +324,90 @@ def self_test() -> int:
         if not report["line_warn"] or report["cap_breach"]:
             failures.append(f"line warn: expected line_warn True, got {report['lines']} lines")
 
-    total = 8
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / ".git").mkdir()
+        half = "# Agents\n\n" + ("x" * (20 * 1024)) + "\n"
+        agents = _write_fixture(root, "AGENTS.md", half)
+        nested = _write_fixture(root, "pkg/AGENTS.md", half)
+        report = check(agents)
+        if report["bytes"] > BYTE_CAP or not report["cap_breach"] or report["chain_bytes"] <= BYTE_CAP:
+            failures.append(f"combined chain from root: expected cap_breach True, got {report['chain_bytes']} bytes")
+        if report["chain_dir"] != "pkg" or not report["root_marker"]:
+            failures.append(f"combined chain from root: expected chain_dir pkg, got {report['chain_dir']}")
+        report = check(nested)
+        if not report["cap_breach"] or report["chain_dir"] != "pkg":
+            failures.append(f"combined chain from nested: expected cap_breach True, got {report['chain_bytes']} bytes")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / ".git").mkdir()
+        _write_fixture(root, "AGENTS.md", "r" * 10)
+        _write_fixture(root, "a/AGENTS.md", "a" * 20000)
+        _write_fixture(root, "b/AGENTS.md", "b" * 25600)
+        report = check(root / "AGENTS.md")
+        if report["chain_bytes"] != 25610 or report["chain_dir"] != "b" or report["cap_breach"]:
+            failures.append(f"sibling subtrees: expected 25610 at b, got {report['chain_bytes']} at {report['chain_dir']}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        agents = root / "AGENTS.md"
+        agents.write_bytes(b"line\r\n" * 6000)
+        report = check(agents)
+        if report["bytes"] != 36000 or not report["cap_breach"]:
+            failures.append(f"CRLF raw bytes: expected 36000 and cap_breach, got {report['bytes']}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / ".git").mkdir()
+        half = "x" * (20 * 1024)
+        agents = _write_fixture(root, "AGENTS.md", half)
+        _write_fixture(root, "ext/lib/AGENTS.md", half)
+        (root / "ext/lib/.git").mkdir()
+        report = check(agents)
+        if report["cap_breach"] or report["chain_bytes"] != report["bytes"]:
+            failures.append(f"nested .git boundary: expected no breach, got {report['chain_bytes']} at {report['chain_dir']}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        half = "x" * (20 * 1024)
+        agents = _write_fixture(root, "AGENTS.md", half)
+        _write_fixture(root, "pkg/AGENTS.md", half)
+        report = check(agents)
+        if report["cap_breach"] or report["chain_bytes"] != report["bytes"] or report["root_marker"]:
+            failures.append(f"no root marker: expected one-file chain, got {report['chain_bytes']} bytes")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / ".git").mkdir()
+        agents = _write_fixture(root, "AGENTS.md", "# Agents\n")
+        (root / "pkg").mkdir()
+        (root / "pkg/AGENTS.md").symlink_to(root / "missing.md")
+        report = check(agents)
+        if report["chain_bytes"] != report["bytes"]:
+            failures.append(f"broken symlink: expected one-file chain, got {report['chain_bytes']} bytes")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / ".git").mkdir()
+        agents = _write_fixture(root, "AGENTS.md", "# Agents\n")
+        _write_fixture(root, "pkg/AGENTS.md", "# Pkg\n")
+        _write_fixture(root, "pkg/AGENTS.override.md", "x" * (40 * 1024))
+        report = check(agents)
+        if not report["cap_breach"] or report["chain_dir"] != "pkg":
+            failures.append(f"override file: expected breach at pkg, got {report['chain_bytes']} at {report['chain_dir']}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        (root / ".git").mkdir()
+        agents = _write_fixture(root, "AGENTS.md", "# Agents\n")
+        _write_fixture(root, "node_modules/dep/AGENTS.md", "x" * (40 * 1024))
+        _write_fixture(root, ".cache/AGENTS.md", "x" * (40 * 1024))
+        report = check(agents)
+        if report["cap_breach"] or report["chain_dir"] != ".":
+            failures.append(f"skip rules: expected no breach at root, got {report['chain_bytes']} at {report['chain_dir']}")
+
+    total = 17
     print(f"self-test: {total - len(failures)}/{total} passed")
     for failure in failures:
         print(f"FAIL {failure}", file=sys.stderr)

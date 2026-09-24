@@ -32,7 +32,7 @@ gh api repos/<owner>/<repo>/rulesets -X POST --input - <<'JSON'
   "name": "copilot-auto-review",
   "target": "branch",
   "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "conditions": { "ref_name": { "include": ["~ALL"], "exclude": [] } },
   "rules": [
     { "type": "copilot_code_review",
       "parameters": { "review_on_push": false, "review_draft_pull_requests": false } }
@@ -40,6 +40,9 @@ gh api repos/<owner>/<repo>/rulesets -X POST --input - <<'JSON'
 }
 JSON
 ```
+
+`~ALL` targets PRs to every branch. Use `~DEFAULT_BRANCH` to cover only PRs
+that target the default branch.
 
 UI path: Settings → **Rules** → **Rulesets** → **New branch ruleset** →
 **Automatically request Copilot code review**.
@@ -58,6 +61,33 @@ gh pr create --reviewer @copilot ...           # at PR creation
 The bot account is `copilot-pull-request-reviewer` (Organization-typed user,
 id 213165537). The UI exposes it in the Reviewers menu as "Copilot".
 
+### Approvals (public preview, as of 2026-09-24)
+
+Copilot approvals are off by default and are in public preview as of
+2026-09-24. An admin can enable these toggles under Settings → Copilot →
+Code review → Auto-approval:
+
+- **Allow Copilot to approve pull requests** lets Copilot submit approving
+  reviews.
+- **Allow Copilot approvals to count toward merge requirements** lets a
+  Copilot approval satisfy the required-approval count.
+
+Org and enterprise policies must also allow approvals. A new push dismisses a
+Copilot approval.
+
+> **Security caution.** Copilot code review reads instructions from the PR
+> head branch. A PR author can edit `.github/copilot-instructions.md` or
+> `.github/instructions/` in the same PR and steer the approval. If Copilot
+> approvals count toward merge requirements, add one of these controls:
+>
+> - Add a CODEOWNERS entry for `.github/**` and require review from code
+>   owners, or require a human approval on changes to `.github/**`.
+> - Restrict counted approvals with the **File paths** globs. The setting
+>   counts "approvals only on pull requests where every changed file matches
+>   one of the globs"
+>   ([Configuring code review by GitHub Copilot](https://docs.github.com/en/copilot/how-tos/copilot-on-github/set-up-copilot/configure-code-review)).
+>   Use globs that do not match `.github/**`.
+
 ## Org-level controls
 
 | Knob | Where | Effect |
@@ -71,9 +101,9 @@ id 213165537). The UI exposes it in the Reviewers menu as "Copilot".
 Document these explicitly — users frequently ask for them and they don't exist.
 
 - **No "request changes" / merge block.** Copilot reviews always post at
-  COMMENT level, never REQUEST_CHANGES. There is no toggle. To require
-  Copilot before merge you would need a separate CI check or branch
-  protection — and there isn't an official integration for that today.
+  COMMENT or APPROVE level, never REQUEST_CHANGES. There is no toggle.
+  Copilot cannot block a merge. See "Approvals" under per-repo controls for
+  the only path to count Copilot toward merge requirements.
 - **No severity threshold.** Copilot flags what it flags.
 - **No path filter for the review itself.** Excluded file types (binaries,
   some generated files) are a fixed list. `excludeAgent: "code-review"` on
@@ -82,8 +112,6 @@ Document these explicitly — users frequently ask for them and they don't exist
 - **No API to re-request a review** after Copilot has already reviewed.
   Only the UI "re-request" button triggers a fresh pass. Open feature
   request: github/community discussion **#186152**.
-- **No auto-approve.** Copilot never approves a PR even when it has no
-  comments.
 - **No premium-request quota toggle.** Each review consumes the PR author's
   quota; `review_on_push: true` multiplies cost. Quota is view-only.
 

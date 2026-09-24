@@ -1,7 +1,8 @@
 # Content checklist
 
-What belongs in `AGENTS.md`, and what does not. Every claim below is cited;
-treat an uncited addition as a proposal to verify, not a fact to ship.
+What belongs in `AGENTS.md`, and what does not. Harness-behavior claims below
+are cited. The Include and Exclude lists are this skill's guidance. Treat an
+uncited harness claim as a proposal to verify, not a fact to ship.
 
 ## Include
 
@@ -15,9 +16,7 @@ treat an uncited addition as a proposal to verify, not a fact to ship.
 - PR and commit rules.
 - Explicit "done" criteria for common task shapes.
 
-Source for this shape: community best-practice guides converge on the same
-list (gist.github.com/0xfauzi, "Agents.md best practices"; multiple
-independent 2026 blog posts) and the agents.md FAQ's own framing of the file
+This list is the guidance of this skill. The agents.md site frames the file
 as an operational README for agents, not a second product README
 (<https://agents.md>).
 

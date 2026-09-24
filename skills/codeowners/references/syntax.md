@@ -9,9 +9,9 @@ Primary source: [About code owners](https://docs.github.com/en/repositories/mana
 GitHub reads `CODEOWNERS` from exactly one of three locations, in this
 order of precedence:
 
-1. The repository root.
-2. `docs/CODEOWNERS`.
-3. `.github/CODEOWNERS`.
+1. `.github/CODEOWNERS`.
+2. The repository root.
+3. `docs/CODEOWNERS`.
 
 Only the first location found takes effect. A file in a second location is
 ignored, not merged.

@@ -8,7 +8,9 @@ changes defaults over time.
 
 - [Workflow syntax: `jobs.<job_id>.steps[*].uses`][uses-syntax] — the
   `owner/repo@ref` and `owner/repo@sha` forms, local `./path` actions,
-  and `docker://image` references.
+  `$/path` self-repository references (no `@ref`), and
+  `docker://image` references. A ref can be a SHA, a tag, or a branch
+  name.
 - [Security hardening for GitHub Actions: using third-party actions][hardening]
   — GitHub's own recommendation to pin actions to a full-length commit
   SHA rather than a tag or branch, because a tag can move to a
@@ -22,18 +24,26 @@ changes defaults over time.
   repos/{owner}/{repo}/actions/permissions`.
 - [Disabling or limiting GitHub Actions for your organization][org-settings]
   — the organization-level equivalent.
+- [REST API endpoints for GitHub Actions permissions][rest-permissions]
+  — `GET /repos/{owner}/{repo}/actions/permissions` and
+  `GET /orgs/{org}/actions/permissions` read the policy at each scope,
+  including `sha_pinning_required`.
 - [GitHub Actions policy now supports blocking and SHA-pinning
   actions][blocking-changelog] (2025-08-15) — allowed-actions policies
   can now block specific actions with a `!action` entry, and can
   require every allowed action to be pinned to a full-length commit
-  SHA org-, enterprise-, or repo-wide. Unpinned workflows fail closed
-  under that policy.
+  SHA org-, enterprise-, or repo-wide. A workflow that uses an
+  unpinned action fails under that policy. Reusable workflows can
+  still use a tag under that policy, so this skill pins reusable
+  workflows itself.
 
 ## Resolving a tag to a commit SHA
 
 - [Get a reference][git-ref] — `GET
   /repos/{owner}/{repo}/git/ref/tags/{tag}` returns the object a tag
-  points at. For a lightweight tag the object is the commit directly.
+  points at, and `GET /repos/{owner}/{repo}/git/ref/heads/{branch}`
+  returns the commit a branch points at. For a lightweight tag the
+  object is the commit directly.
 - [Get a tag][git-tag] — `GET /repos/{owner}/{repo}/git/tags/{tag_sha}`
   dereferences an *annotated* tag object to its target commit SHA; a
   ref lookup on an annotated tag returns the tag object SHA, not the
@@ -64,6 +74,7 @@ changes defaults over time.
 [hardening]: https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions
 [repo-settings]: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository
 [org-settings]: https://docs.github.com/en/organizations/managing-organization-settings/disabling-or-limiting-github-actions-for-your-organization
+[rest-permissions]: https://docs.github.com/en/rest/actions/permissions
 [blocking-changelog]: https://github.blog/changelog/2025-08-15-github-actions-policy-now-supports-blocking-and-sha-pinning-actions
 [git-ref]: https://docs.github.com/en/rest/git/refs
 [git-tag]: https://docs.github.com/en/rest/git/tags

@@ -37,11 +37,11 @@ branch rulesets in general (`/gh-bootstrap`) or community health files
 ### 1. Detect the existing file and the default branch
 
 GitHub reads `CODEOWNERS` from one of three locations, checked in this
-order: the repository root, `docs/`, or `.github/`. Only one of the three
-takes effect.
+order: `.github/`, the repository root, then `docs/`. Only the first file
+found takes effect.
 
 ```bash
-for path in CODEOWNERS docs/CODEOWNERS .github/CODEOWNERS; do
+for path in .github/CODEOWNERS CODEOWNERS docs/CODEOWNERS; do
   test -f "$path" && echo "Found: $path"
 done
 REPO="$(gh repo view --json nameWithOwner --jq '.nameWithOwner')"
@@ -49,7 +49,7 @@ DEFAULT_BRANCH="$(gh repo view "$REPO" --json defaultBranchRef --jq '.defaultBra
 ```
 
 If more than one location has a file, tell the user only the first match
-(root, then `docs/`, then `.github/`) is active and ask which one to keep.
+(`.github/`, then root, then `docs/`) is active and ask which one to keep.
 If none exists, ask which location to create — `.github/CODEOWNERS` is the
 conventional choice because it keeps repository policy files together.
 
@@ -86,8 +86,8 @@ Write rules in the order the user confirmed, respecting CODEOWNERS syntax:
   overrides last. A file matches its last matching line, not its first.
 - **`@org/team` needs write access.** A team reference only takes effect if
   the team has been explicitly granted write access to the repository, not
-  merely membership in the org. Confirm this with `gh api
-  orgs/{org}/teams/{slug}` (see Guardrails) before writing the line.
+  merely membership in the org. Before you write the line, confirm that the
+  team exists and then confirm its write access (see Guardrails).
 - **A trailing `*` fallback rule** (`* @org/default-owners`) catches paths
   no other rule matches. Put it first so more specific rules below it can
   override it.
@@ -170,9 +170,12 @@ asking for it.
 
 - Diff any existing `CODEOWNERS` file before overwriting it; ask before
   replacing content the user did not confirm.
-- Never invent a GitHub handle or team slug. Confirm a team exists and has
-  repo write access with `gh api orgs/{org}/teams/{slug}` before adding
-  `@org/team` to a rule.
+- Never invent a GitHub handle or team slug. Before adding `@org/team` to a
+  rule, run `gh api -H 'Accept: application/vnd.github.v3.repository+json'
+  orgs/{org}/teams/{slug}/repos/$REPO`. Require `.permissions.push` to be
+  `true`. A 404 means the team does not exist, has no access, or is not
+  visible to your token. Confirm the slug with
+  `gh api orgs/{org}/teams/{slug}` before you ask for an access grant.
 - Never mutate the ruleset (`require_code_owner_review` or the
   required-reviewer rule) without explicit user authorization for that
   specific write.

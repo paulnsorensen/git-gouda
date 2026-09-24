@@ -18,4 +18,4 @@ This document guides agents and automation working in this repository.
 
 - <Language/runtime version and any standard-library-first preference.>
 - <A non-default convention this project enforces.>
-- Use Conventional Commits.
+- <Commit message convention, if enforced.>

@@ -6,7 +6,8 @@ echoes each recipe line, then the underlying tool prints its own banner — a
 typical TS pipeline is 60+ lines, most of it low-signal.
 
 Use this reference once the universal levers (`@` prefix, `--silent --no-audit
---no-fund`, drop coverage from default `build`) aren't enough.
+--no-fund`) are not enough. Keep coverage in the `build` and `ci` gates; rtk
+only filters their output.
 
 ## rtk rewrite shell wrap
 
@@ -26,15 +27,21 @@ decides what to echo live. Run `rtk config` to confirm.
 
 The shell wrap gets you filtered output, but some filters (notably vitest) still
 print useful-but-verbose blocks — coverage tables, summaries — on success. For
-the single noisiest recipe line, wrap it explicitly to suppress *all* output on
-success and surface full output only on failure:
+the single noisiest step in `_gate`, replace `step` with `rtk test` or `rtk err`
+to suppress *all* output on success and surface full output only on failure.
+Keep every other gate step:
 
 ```just
-build:
-    npm install
-    npm run lint:fix
-    npm run build
-    rtk test npm run test:coverage   # silent on pass, full dump on fail
+[private]
+[no-exit-message]
+[script("bash")]
+_gate mode:
+    set -uo pipefail
+    step() { local n=$1; shift; local o
+        if o=$("$@" 2>&1); then echo "✓ $n"
+        else echo "✗ $n"; printf '%s\n' "$o"; exit 1; fi; }
+    # ...format, lint, and typecheck steps from the language template...
+    rtk test npm run test:coverage || exit 1   # silent on pass, full dump on fail
 ```
 
 - `rtk test CMD` — show only test failures

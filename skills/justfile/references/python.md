@@ -24,6 +24,15 @@ _gate mode:
     step() { local n=$1; shift; local o
         if o=$("$@" 2>&1); then echo "✓ $n"
         else echo "✗ $n"; printf '%s\n' "$o"; exit 1; fi; }
+    # Ratchet: fail below the committed .coverage-baseline; only `build` raises it.
+    ratchet() {
+        [[ $1 =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "no coverage value: '$1'"; return 1; }
+        local cur=$1 base
+        base=$(cat .coverage-baseline 2>/dev/null || echo 0)
+        awk -v c="$cur" -v b="$base" 'BEGIN{exit !(c>=b)}' ||
+            { echo "Coverage regression: $cur% < $base%"; return 1; }
+        if [ "{{mode}}" = "fix" ]; then echo "$cur" > .coverage-baseline; fi
+    }
     if [ "{{mode}}" = "fix" ]; then
         step format uv run ruff format .
         step lint   uv run ruff check --fix .
@@ -32,7 +41,8 @@ _gate mode:
         step lint   uv run ruff check .
     fi
     step typecheck uv run mypy src/
-    step test      uv run pytest --cov=src --cov-fail-under=85 -q
+    step test      uv run pytest --cov=src --cov-report=json --cov-fail-under=85 -q
+    step ratchet   ratchet "$(jq '.totals.percent_covered' coverage.json)"
 
 # Install dependencies
 install:
@@ -60,15 +70,6 @@ cov-per-file MIN="70":
     jq -r --argjson min {{MIN}} \
         '.files | to_entries[] | select(.value.summary.percent_covered < $min) | "\(.key): \(.value.summary.percent_covered | round)%"' \
         coverage.json | (! grep . || { echo "Files below {{MIN}}%"; exit 1; })
-
-# Ratchet: never let overall coverage regress (reads/writes .coverage-baseline)
-cov-ratchet:
-    #!/usr/bin/env bash
-    CUR=$(jq '.totals.percent_covered' coverage.json)
-    BASE=$(cat .coverage-baseline 2>/dev/null || echo 0)
-    awk -v c=$CUR -v b=$BASE 'BEGIN{exit !(c>=b)}' \
-        && echo $CUR > .coverage-baseline \
-        || { echo "Coverage regression: $CUR% < $BASE%"; exit 1; }
 
 # Lint (check only)
 lint:
@@ -112,7 +113,7 @@ exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
 addopts = "--cov=src --cov-report=term-missing --cov-report=json --cov-fail-under=85"
 ```
 
-The `fail_under` in `[tool.coverage.report]` is the single source of truth — it's what `--cov-fail-under` reads. Per-file thresholds are not natively supported (pytest-cov issue #444); use the `cov-per-file` recipe above as a workaround. Commit `.coverage-baseline` to enforce ratcheting in CI.
+The `fail_under` in `[tool.coverage.report]` is the single source of truth — it's what `--cov-fail-under` reads. Per-file thresholds are not natively supported (pytest-cov issue #444); use the `cov-per-file` recipe above as a workaround. Commit `.coverage-baseline`. The `ci` gate fails when coverage drops below it, and the `build` gate raises it.
 
 ## Notes
 

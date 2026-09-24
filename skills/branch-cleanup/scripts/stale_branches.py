@@ -12,7 +12,11 @@ repository fixture (no network, no ``gh`` required).
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
+import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -99,15 +103,24 @@ def gh_open_pr(owner_repo: str, branch: str) -> bool:
     return len(prs) > 0
 
 
-def gh_protected(owner_repo: str, branch: str) -> bool:
+def gh_protected(owner_repo: str, branch: str) -> bool | None:
+    """Return ruleset protection, or None when the rules query fails.
+
+    The endpoint returns 200 with an empty array when no rules apply, so a
+    failed query does not prove the branch is unprotected.
+    """
     result = subprocess.run(
         ["gh", "api", f"repos/{owner_repo}/rules/branches/{branch}"],
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
-        # A 404-shaped failure means no rules target the branch.
-        return False
+        print(
+            f"WARNING: rules query failed for {branch}; protection is unknown, so the branch stays keep: "
+            f"{result.stderr.strip()}",
+            file=sys.stderr,
+        )
+        return None
     rules = json.loads(result.stdout or "[]")
     return len(rules) > 0
 
@@ -118,9 +131,9 @@ def age_days(commit_date: str, now: datetime | None = None) -> float:
     return (now - commit_dt).total_seconds() / 86400
 
 
-def classify(merged: bool, protected: bool, open_pr: bool, age: float, days: int) -> str:
-    """Return one of "keep", "archive", "delete"."""
-    if protected or open_pr:
+def classify(merged: bool, protected: bool | None, open_pr: bool, age: float, days: int) -> str:
+    """Return one of "keep", "archive", "delete". Unknown protection (None) is keep."""
+    if protected is None or protected or open_pr:
         return "keep"
     if merged:
         return "delete"
@@ -139,7 +152,7 @@ class BranchReport:
     behind: int
     merged: bool
     open_pr: bool
-    protected: bool
+    protected: bool | None
     recommendation: str
 
 
@@ -185,7 +198,7 @@ def print_table(reports: list[BranchReport]) -> None:
             str(r.behind),
             str(r.merged),
             str(r.open_pr),
-            str(r.protected),
+            "unknown" if r.protected is None else str(r.protected),
             r.recommendation,
         )
         for r in reports
@@ -195,13 +208,17 @@ def print_table(reports: list[BranchReport]) -> None:
         print(" | ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)))
 
 
+def delete_command(branch: str) -> str:
+    return f"git push origin --delete {shlex.quote(branch)}"
+
+
 def print_delete_commands(reports: list[BranchReport]) -> None:
     deletable = [r for r in reports if r.recommendation == "delete"]
     if not deletable:
         return
     print("\nProposed deletions (run only after explicit authorization):")
     for r in deletable:
-        print(f"git push origin --delete {r.branch}")
+        print(delete_command(r.branch))
 
 
 def run_self_test() -> int:
@@ -231,7 +248,12 @@ def run_self_test() -> int:
         (repo / "unmerged.txt").write_text("unmerged\n", encoding="utf-8")
         _run(["git", "add", "unmerged.txt"], repo)
         _run(["git", "commit", "-qm", "add unmerged.txt"], repo)
+        (repo / "unmerged.txt").write_text("unmerged 2\n", encoding="utf-8")
+        _run(["git", "commit", "-qam", "update unmerged.txt"], repo)
         _run(["git", "checkout", "-q", "main"], repo)
+        (repo / "main.txt").write_text("main\n", encoding="utf-8")
+        _run(["git", "add", "main.txt"], repo)
+        _run(["git", "commit", "-qm", "add main.txt"], repo)
 
         default = "main"
         for branch, expect_merged, expect_recommendation in (
@@ -244,6 +266,49 @@ def run_self_test() -> int:
                 report.recommendation == expect_recommendation,
                 f"{branch}: expected recommendation={expect_recommendation!r}, got {report.recommendation!r}",
             ))
+
+        diverged = build_report(repo, default, "unmerged-branch", remote=False, owner_repo=None, days=DEFAULT_DAYS)
+        checks.append((
+            (diverged.ahead, diverged.behind) == (2, 1),
+            f"unmerged-branch: expected ahead=2 behind=1, got ahead={diverged.ahead} behind={diverged.behind}",
+        ))
+
+        hostile = "x;touch${IFS}pwned$(id)`id`'q|&"
+        _run(["git", "branch", hostile], repo)
+        command = delete_command(hostile)
+        checks.append((
+            shlex.split(command) == ["git", "push", "origin", "--delete", hostile],
+            f"hostile branch name must be one quoted shell word, got {command!r}",
+        ))
+
+        fake_bin = repo / ".fake-bin"
+        fake_bin.mkdir()
+        fake_gh = fake_bin / "gh"
+        fake_gh.write_text(
+            '#!/bin/sh\nif [ "$1" = pr ]; then echo "[]"; exit 0; fi\necho "HTTP 502: Bad Gateway" >&2\nexit 1\n',
+            encoding="utf-8",
+        )
+        fake_gh.chmod(0o755)
+        saved_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = f"{fake_bin}{os.pathsep}{saved_path}"
+        captured_stderr = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(captured_stderr):
+                failed_rules = build_report(
+                    repo, default, "merged-branch", remote=False, owner_repo="fixture/repo", days=DEFAULT_DAYS
+                )
+        finally:
+            os.environ["PATH"] = saved_path
+        warning = captured_stderr.getvalue()
+        checks.append((
+            "WARNING: rules query failed for merged-branch" in warning and "HTTP 502" in warning,
+            f"failed rules query must warn on stderr with the gh error, got {warning!r}",
+        ))
+        checks.append((
+            failed_rules.protected is None and failed_rules.recommendation == "keep",
+            "merged-branch with a failed rules query: expected protected=None and recommendation='keep', "
+            f"got protected={failed_rules.protected!r} recommendation={failed_rules.recommendation!r}",
+        ))
 
         old_report = build_report(repo, default, "unmerged-branch", remote=False, owner_repo=None, days=0)
         checks.append((

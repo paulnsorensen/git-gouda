@@ -32,15 +32,25 @@ _gate mode:
         go tool cover -func=coverage.out | tail -1 |
             awk -v min=80 '{gsub(/%/,"",$3); if ($3+0 < min) {printf "FAIL: total %s%% < %s%%\n",$3,min; exit 1}}'
     }
+    # Ratchet: fail below the committed .coverage-baseline; only `build` raises it.
+    ratchet() {
+        [[ $1 =~ ^[0-9]+(\.[0-9]+)?$ ]] || { echo "no coverage value: '$1'"; return 1; }
+        local cur=$1 base
+        base=$(cat .coverage-baseline 2>/dev/null || echo 0)
+        awk -v c="$cur" -v b="$base" 'BEGIN{exit !(c>=b)}' ||
+            { echo "Coverage regression: $cur% < $base%"; return 1; }
+        if [ "{{mode}}" = "fix" ]; then echo "$cur" > .coverage-baseline; fi
+    }
     if [ "{{mode}}" = "fix" ]; then
         step format bash -c 'gofmt -s -w . && goimports -w .'
         step lint   golangci-lint run --fix ./...
     else
-        step format bash -c 'o=$(gofmt -s -l .); [ -z "$o" ] || { printf "unformatted:\n%s\n" "$o"; exit 1; }'
+        step format bash -c 'o=$(gofmt -s -l . && goimports -l .) || exit 1; [ -z "$o" ] || { printf "unformatted:\n%s\n" "$o"; exit 1; }'
         step lint   golangci-lint run ./...
     fi
     step vet  go vet ./...
     step test cov
+    step ratchet ratchet "$(go tool cover -func=coverage.out | tail -1 | awk '{gsub(/%/,"",$3); print $3}')"
 
 # Build binary artifact (not the gate — that's `build`)
 dist:
@@ -74,20 +84,7 @@ cov-check MIN="80":
 # not per package — there is no native per-package threshold in the Go toolchain.
 cov-per-func MIN="75":
     go test -coverprofile=coverage.out ./...
-    go tool cover -func=coverage.out | awk -v min={{MIN}} '
-        /^total:/ {next}
-        {gsub(/%/,"",$NF); if ($NF+0 < min) { printf "FAIL %s: %s%%\n",$1,$NF; bad=1 }}
-        END { exit bad+0 }'
-
-# Ratchet: never let overall coverage regress (reads/writes .coverage-baseline)
-cov-ratchet:
-    #!/usr/bin/env bash
-    go test -coverprofile=coverage.out ./... >/dev/null
-    CUR=$(go tool cover -func=coverage.out | tail -1 | awk '{gsub(/%/,"",$3); print $3}')
-    BASE=$(cat .coverage-baseline 2>/dev/null || echo 0)
-    awk -v c=$CUR -v b=$BASE 'BEGIN{exit !(c>=b)}' \
-        && echo $CUR > .coverage-baseline \
-        || { echo "Coverage regression: $CUR% < $BASE%"; exit 1; }
+    go tool cover -func=coverage.out | awk -v min={{MIN}} '/^total:/ {next} {gsub(/%/,"",$NF); if ($NF+0 < min) {printf "FAIL %s: %s%%\n",$1,$NF; bad=1}} END {exit bad+0}'
 
 # Lint (requires golangci-lint)
 lint:
@@ -124,7 +121,7 @@ dist-all:
 
 - Go's toolchain has no `--fail-under` flag — thresholds always require a shell script or awk one-liner.
 - The awk pattern above is one common approach; some projects use env-var `COVERAGE_THRESHOLD` instead of a just parameter, or the `go-test-coverage` tool for declarative thresholds via YAML.
-- Commit `.coverage-baseline` to enforce the ratchet in CI.
+- Commit `.coverage-baseline`. The `ci` gate fails when coverage drops below it, and the `build` gate raises it.
 
 ## Notes
 

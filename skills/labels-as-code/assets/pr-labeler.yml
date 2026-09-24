@@ -3,6 +3,9 @@
 #
 # Reads .github/labeler.yml (assets/labeler.yml is the starting template).
 # Reference: https://github.com/actions/labeler#readme
+#
+# The pinned action runs on Node 24. Self-hosted runners must be
+# Actions Runner v2.327.1 or later.
 
 name: labeler
 

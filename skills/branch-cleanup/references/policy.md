@@ -6,7 +6,8 @@ recommendation.
 ## Rule
 
 1. A branch protected by a ruleset, or with an open pull request, is always
-   `keep`, regardless of age or merged status.
+   `keep`, regardless of age or merged status. A failed rules query leaves
+   protection unknown, so the branch is also `keep`.
 2. Otherwise, a merged branch is `delete`.
 3. Otherwise, an unmerged branch at or past the `--days` threshold is
    `archive`.

@@ -69,6 +69,8 @@ Ask the user whether to adopt the default set as-is, trim it, or start from the 
 
 Two ways to apply `.github/labels.yml` to the repo. Ask the user which one before doing either.
 
+The workflow templates in this step and in step 4 pin Node 24 actions. Before you copy either workflow, confirm that any self-hosted runner is Actions Runner v2.327.1 or later. GitHub-hosted runners already meet this requirement.
+
 #### One-shot sync
 
 ```bash
@@ -84,7 +86,7 @@ gh label clone <owner>/<repo>
 
 #### Scheduled sync workflow
 
-For drift correction without a human running `gh label create` by hand, copy `assets/labels-sync.yml` to `.github/workflows/labels-sync.yml`. It runs `crazy-max/ghaction-github-labeler`, the maintained action verified for this skill (see `references/label-scheme.md` for the verification command and the current pinned SHA). The template ships with `skip-delete: true` — labels absent from `.github/labels.yml` are left alone, not deleted. Flip `skip-delete` to `false` only after the user explicitly authorizes deletions; the diff in step 1 shows exactly which labels that would remove.
+For drift correction without a human running `gh label create` by hand, copy `assets/labels-sync.yml` to `.github/workflows/labels-sync.yml`. It runs `crazy-max/ghaction-github-labeler`, the maintained action verified for this skill (see `references/label-scheme.md` for the verification command and the current pinned SHA). The template ships with `skip-delete: true` — labels absent from `.github/labels.yml` are left alone, not deleted. Flip `skip-delete` to `false` only after the user explicitly authorizes deletions; the diff in step 1 shows exactly which labels that would remove. The template runs weekly on a `schedule` trigger, on each push to `main` that changes `.github/labels.yml` or the workflow file itself, and on manual `workflow_dispatch`.
 
 `EndBug/label-sync` is a viable alternative with the same shape (sync from a YAML file, delete-by-default gated by an option). Verify either action's latest release and SHA with `gh api repos/{owner}/{repo}` and the tag-to-commit lookup in `references/label-scheme.md` before pinning — do not reuse a SHA from this skill without re-verifying it against the current release.
 

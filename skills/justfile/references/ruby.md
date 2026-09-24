@@ -64,6 +64,7 @@ db-rollback:
 db-seed:
     bin/rails db:seed
 
+[confirm("Drop and recreate the database?")]
 db-reset:
     bin/rails db:drop db:create db:migrate db:seed
 
@@ -135,7 +136,9 @@ SimpleCov.start do
     : 85.0
   minimum_coverage line: [threshold, 90].max, branch: 85
 
+  # A custom at_exit replaces the default hook, so call format! explicitly.
   at_exit do
+    SimpleCov.result&.format!
     pct = SimpleCov.result&.covered_percent || 0
     File.write('.coverage_threshold', pct.round(2).to_s) if pct > threshold
   end

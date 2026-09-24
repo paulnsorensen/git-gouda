@@ -71,7 +71,10 @@ ships with:
   needs to read the PR title
 - `on.pull_request.types: [opened, edited, synchronize, reopened]` — reruns
   the check whenever the title or the PR itself changes
-- No run on `merge_group` — there is no PR title inside a merge group event
+- `merge_group` trigger with a job-level
+  `if: github.event_name == 'pull_request'` — the job validates the title
+  only on the PR, because a merge group event has no PR title; on
+  `merge_group` the job is skipped, and a skipped job reports success
 - Commented-out `types` and `scopes` lists, and a `subjectPattern` example,
   for the user to uncomment and tailor
 - `requireScope: false` — most repos do not need a mandatory scope
@@ -96,6 +99,17 @@ Adding `pr-title-lint`'s check name to a ruleset's required status checks is
 `gh-bootstrap`'s job, not this skill's. Hand off to `gh-bootstrap` for that
 step, and require explicit user authorization before any ruleset write —
 never add a required check to a live ruleset without asking first.
+
+Before the check becomes required, tell the user about merge queues. If the
+branch uses a merge queue, GitHub waits for each required check on the
+`merge_group` event. A workflow without a `merge_group` trigger never
+reports that check. The queue waits for the check, then drops the PR,
+and the merge fails. Keep the `merge_group` trigger
+and the job-level `if` from the template. If the user removed the trigger,
+add it back before the check becomes required. Sources:
+[Managing a merge queue](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue#triggering-merge-group-checks-with-github-actions)
+and
+[Handling skipped but required checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks).
 
 ### 6. Verify
 

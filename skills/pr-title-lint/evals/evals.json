@@ -5,7 +5,7 @@
       "id": 1,
       "name": "positive",
       "prompt": "Add a CI check that enforces Conventional Commit PR titles.",
-      "expected_output": "The skill checks the repository's squash-merge commit title setting and for an existing title check, scaffolds .github/workflows/pr-title.yml from the pinned action-semantic-pull-request template, shows the diff, and asks before overwriting an existing file.",
+      "expected_output": "The skill checks the repository's squash-merge commit title setting and for an existing title check, scaffolds .github/workflows/pr-title.yml from the pinned action-semantic-pull-request template, shows the diff, and asks before overwriting an existing file. Before the check becomes required, it tells the user that a merge queue needs the template's merge_group trigger and job-level if, or the queue drops the PR and the merge fails.",
       "files": []
     },
     {

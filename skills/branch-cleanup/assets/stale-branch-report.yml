@@ -2,8 +2,9 @@
 #
 # Applies the same classification as scripts/stale_branches.py (see
 # references/policy.md): a branch is `keep` when protected by a ruleset or
-# when an open pull request targets it, `delete` when merged, `archive`
-# when unmerged and past the age threshold, `keep` otherwise. The workflow
+# when an open pull request targets it, `keep` when the rules query or the
+# pull-request query fails, `delete` when merged, `archive` when unmerged
+# and past the age threshold, `keep` otherwise. The workflow
 # writes the table to the job summary only.
 
 name: stale branch report
@@ -44,8 +45,9 @@ jobs:
             echo "|---|---|---|---|---|---|---|"
           } | tee -a "$summary" >/dev/null
           now_epoch="$(date -u +%s)"
-          git for-each-ref --format='%(refname:short)' "refs/remotes/origin" \
-            | sed 's#^origin/##' \
+          # lstrip=3 drops refs/remotes/origin/ and keeps HEAD as HEAD, so the
+          # symbolic origin/HEAD ref never appears as a branch named "origin".
+          git for-each-ref --format='%(refname:lstrip=3)' "refs/remotes/origin" \
             | grep -vx -e 'HEAD' -e "$default_branch" \
             | while IFS= read -r branch; do
                 ref="origin/$branch"
@@ -58,12 +60,20 @@ jobs:
                   merged="true"
                 fi
                 open_pr="false"
-                if [ "$(gh pr list --repo "$REPO" --head "$branch" --state open --json number --jq 'length')" -gt 0 ]; then
-                  open_pr="true"
+                if pr_count="$(gh pr list --repo "$REPO" --head "$branch" --state open --json number --jq 'length')"; then
+                  if [ "$pr_count" -gt 0 ]; then
+                    open_pr="true"
+                  fi
+                else
+                  open_pr="unknown"
                 fi
-                protected="false"
-                if [ "$(gh api "repos/$REPO/rules/branches/$branch" --jq 'length' 2>/dev/null || echo 0)" -gt 0 ]; then
-                  protected="true"
+                protected="unknown"
+                if rule_count="$(gh api "repos/$REPO/rules/branches/$branch" --jq 'length')"; then
+                  if [ "$rule_count" -gt 0 ]; then
+                    protected="true"
+                  else
+                    protected="false"
+                  fi
                 fi
                 recommendation="keep"
                 if [ "$protected" = "false" ] && [ "$open_pr" = "false" ]; then
@@ -73,7 +83,9 @@ jobs:
                     recommendation="archive"
                   fi
                 fi
+                branch_cell="${branch//|/\\|}"
+                author_cell="${author//|/\\|}"
                 printf '| %s | %s | %s | %s | %s | %s | %s |\n' \
-                  "$branch" "$age_days" "$author" "$merged" "$open_pr" "$protected" "$recommendation" \
+                  "$branch_cell" "$age_days" "$author_cell" "$merged" "$open_pr" "$protected" "$recommendation" \
                   | tee -a "$summary" >/dev/null
               done

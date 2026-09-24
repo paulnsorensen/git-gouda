@@ -34,10 +34,21 @@ workflow file:
 python3 scripts/pin_check.py .
 ```
 
-It walks `.github/workflows/**` and `.github/actions/**`, prints a
-table of `(file, line, action, ref, status)` for every `uses:` line,
-and exits 1 when any reference is unpinned. Use `--json` for
-machine-readable output when scripting the remaining steps.
+It walks `.github/workflows/**`, `.github/actions/**`, and every
+`action.yml` or `action.yaml` manifest in the tree. It skips VCS and
+dependency directories: `.git`, `.hg`, `.svn`, `node_modules`, `.venv`,
+`venv`, `__pycache__`, `dist`, `build`, `.tox`, and `target`. It scans
+`vendor/`, because a `./vendor/...` reference can run a vendored action.
+It prints a table of `(file, line, action, ref, status)` for every
+`uses:` line and exits 1 when any reference is unpinned. Use `--json`
+for machine-readable output when scripting the remaining steps.
+
+The scanner uses regular expressions, not a YAML parser. It removes one
+matching pair of surrounding quotes from each `uses:` value. It has two
+known limits; check the workflow by hand when either applies:
+
+- A `uses:` line inside a `run: |` block scalar gives a false row.
+- A flow-style mapping such as `- {uses: owner/repo@v1}` gives no row.
 
 ### 2. Classify
 
@@ -46,23 +57,40 @@ The scanner assigns one status per reference:
 | Status | Meaning | Action needed |
 |---|---|---|
 | `pinned-sha` | already a full 40-character commit SHA | none |
-| `unpinned-tag` | a tag such as `v4` or `v4.1.0` | resolve to a SHA |
-| `unpinned-branch` | a branch ref such as `main` | resolve to a SHA |
+| `unpinned-tag` | a tag-shaped ref such as `v4` or `v4.1.0` | resolve to a SHA |
+| `unpinned-branch` | a common branch name such as `main` | resolve to a SHA |
+| `unpinned-ref` | any other ref, such as `release/v1`; type unknown | resolve to a SHA |
+| `unpinned-commit` | a commit-like hex ref, such as a short SHA `de0fac2` or an uppercase 40-character SHA | resolve to the full lowercase SHA |
 | `missing-ref` | no `@ref` at all | resolve to a SHA |
-| `local` | a local `./path` action | skip — not a supply-chain risk |
+| `invalid-self-ref` | a `$/path` self-repository reference with an `@ref` suffix | remove the `@ref` suffix |
+| `local` | a local `./path` action or a `$/path` self-repository reference | skip — not a supply-chain risk |
 | `docker` | a `docker://image` reference | flag separately — SHA pinning applies to the image digest, not this scanner |
 
-### 3. Resolve each tag or branch to a commit SHA
+### 3. Resolve each ref to a commit SHA
 
-For each `unpinned-tag`, `unpinned-branch`, or `missing-ref` finding:
+For each `unpinned-tag`, `unpinned-branch`, `unpinned-ref`,
+`unpinned-commit`, or `missing-ref` finding:
 
 ```bash
-# Lightweight tag or branch: the ref object is the commit directly.
+# Tag: the ref object is the commit (lightweight) or a tag object (annotated).
 gh api repos/{owner}/{repo}/git/ref/tags/{tag} --jq '.object'
 
-# Annotated tag: the ref object is a tag object, not a commit.
-# Dereference it to get the commit SHA.
+# Branch: the ref object is the commit directly.
+gh api repos/{owner}/{repo}/git/ref/heads/{branch} --jq '.object.sha'
+
+# Annotated tag: dereference the tag object to get the commit SHA.
 gh api repos/{owner}/{repo}/git/tags/{tag_sha} --jq '.object.sha'
+```
+
+For an `unpinned-ref`, try the `tags/` path first, then the `heads/`
+path.
+
+For an `unpinned-commit`, the tag and branch paths cannot resolve the
+ref. Resolve it through the commits endpoint, which returns the full
+lowercase SHA:
+
+```bash
+gh api repos/{owner}/{repo}/commits/{ref} --jq '.sha'
 ```
 
 **Impostor-commit check — always run before rewriting a pin.** Confirm
@@ -106,17 +134,27 @@ entry.
 
 GitHub can enforce SHA pinning at the allowed-actions policy level
 (repo, org, or enterprise), including blocking specific actions
-outright. Read the current policy before proposing any change:
+outright. Read the current policy at the scope of the request before
+proposing any change:
 
 ```bash
+# Repository scope.
 gh api repos/{owner}/{repo}/actions/permissions
+
+# Organization scope. Use this for an organization-wide request.
+gh api orgs/{org}/actions/permissions
 ```
 
-This is a read. Never call the corresponding write endpoints
-(`PUT repos/{owner}/{repo}/actions/permissions` and the
-`selected-actions` / `allowed_actions` variants) without the user's
-explicit authorization for that specific change — policy changes can
-block other workflows in the repo from running.
+These are reads. Never call the corresponding write endpoints
+(`PUT repos/{owner}/{repo}/actions/permissions`,
+`PUT orgs/{org}/actions/permissions`, and the `selected-actions` /
+`allowed_actions` variants) without the user's explicit authorization
+for that specific change — policy changes can block other workflows
+from running.
+
+The SHA-pinning policy applies to actions only. Reusable workflows
+can still use a tag under that policy, so this skill pins reusable
+workflow references itself.
 
 ### 6. Flag mutable downloads inside workflow scripts
 
@@ -155,9 +193,10 @@ Re-run the scanner after every rewrite batch:
 python3 scripts/pin_check.py . && echo "all uses: references pinned"
 ```
 
-Exit 0 with no `unpinned-tag`, `unpinned-branch`, or `missing-ref`
-rows means every actionable reference is pinned. Report `local` and
-`docker` rows separately — they are informational, not failures.
+Exit 0 with no `unpinned-tag`, `unpinned-branch`, `unpinned-ref`,
+`unpinned-commit`, `missing-ref`, or `invalid-self-ref` rows means every
+actionable reference is pinned. Report `local` and `docker` rows
+separately — they are informational, not failures.
 
 ## What this skill is NOT for
 

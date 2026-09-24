@@ -70,7 +70,7 @@ Copilot reads repo instructions across these surfaces:
 
 - **Copilot Chat** — `github.com/copilot` (with repo attached) and IDE chat.
 - **Copilot code review** — PR reviews. Toggleable per-repo. Reads from the
-  **base branch**, not the feature branch.
+  PR's **head branch** (the branch with the changes), not the base branch.
 - **Copilot coding agent (cloud agent)** — issue-driven implementations.
 
 Path-specific files (`.github/instructions/*.instructions.md`) are fully
@@ -104,7 +104,8 @@ temporarily disable a set rather than fighting overlap.
 3. Keep it ≤ 2 pages. Whitespace is ignored, so use bullets liberally.
 4. Content that pulls weight: stack summary, build/test commands, layout map,
    non-obvious conventions. Skip generic advice Copilot already knows.
-5. Commit on the **base branch** (usually `main`) — code review reads from base.
+5. Commit on a feature branch and open a PR. Code review reads the PR's head
+   branch, so the review of that PR uses the new instructions.
 
 ### Add path-specific instructions
 
@@ -140,7 +141,7 @@ gh api repos/<owner>/<repo>/rulesets -X POST --input - <<'JSON'
   "name": "copilot-auto-review",
   "target": "branch",
   "enforcement": "active",
-  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "conditions": { "ref_name": { "include": ["~ALL"], "exclude": [] } },
   "rules": [
     {
       "type": "copilot_code_review",
@@ -153,6 +154,9 @@ gh api repos/<owner>/<repo>/rulesets -X POST --input - <<'JSON'
 }
 JSON
 ```
+
+`~ALL` targets PRs to every branch. Use `~DEFAULT_BRANCH` to cover only PRs
+that target the default branch.
 
 Defaults shown are conservative: review once on PR open, skip drafts.
 Flip `review_on_push` to `true` to re-review on every push — useful for
@@ -196,8 +200,10 @@ When the user says "audit our Copilot config":
    - `excludeAgent` values are exactly `"code-review"` or `"cloud-agent"`.
    - No instructions baked into the repo-wide file that should be path-scoped
      (e.g. "always add type hints" — that's Python-only, hoist it).
-3. Check the base branch in `git log` — recent edits to instructions on a
-   feature branch won't be seen by code review until merged.
+3. Check which branch has the current instructions. Code review reads the
+   PR's head branch, so a PR sees its own instruction edits. PRs from other
+   branches see the edits only after the edits merge into the base and those
+   branches merge or rebase from it.
 4. Flag conflicts with org-level or expected personal instructions.
 
 ---
@@ -212,8 +218,8 @@ When the user says "audit our Copilot config":
   refactor Y") — they're long-lived configuration, not ticket scope.
 - **Don't duplicate org instructions.** If your org already says "use
   Conventional Commits", don't repeat it at repo level.
-- **Code review reads base branch.** PR-only changes to instructions don't
-  affect that PR's own review.
+- **Code review reads the head branch.** Instruction changes in a PR apply to
+  that PR's own review, so you can test them before merge.
 - **Don't include secrets, tokens, or internal URLs.** These files are part
   of the repo — anyone with read access sees them.
 

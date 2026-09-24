@@ -530,7 +530,8 @@ def _check_ci_observation(
     selected_names = item["selected_job_names"]
     if any(not isinstance(name, str) or not name for name in selected_names):
         raise InputError("CI observation selected_job_names must be a string list")
-    ci_jobsets.add(json.dumps(sorted(selected_names)))
+    if eligible:
+        ci_jobsets.add(json.dumps(sorted(selected_names)))
     run_id = _integer(
         identity.get("run_id"), "observation.identity.run_id", positive=True
     )
@@ -782,7 +783,15 @@ def _comparison_context(data: dict[str, Any], variants: _Variants) -> dict[str, 
             "validation_contract": context["validation_contract"],
             "environment": context.get("runner_toolchain"),
             "cache_state": context.get("cache_state"),
-            "selected_job_names": sorted(observations[0].get("selected_job_names", []))
+            # The jobset gate guarantees an eligible observation; None is a guard.
+            "selected_job_names": next(
+                (
+                    sorted(item["selected_job_names"])
+                    for item in observations
+                    if item["eligibility"]
+                ),
+                None,
+            )
             if variants.jobset == 1
             else None,
         }
@@ -1000,7 +1009,12 @@ def _write_json(value: Any, path: str | None, force: bool) -> None:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="run built-in checks and exit",
+    )
+    subparsers = parser.add_subparsers(dest="command")
     for name in ("ci", "local"):
         command = subparsers.add_parser(name)
         command.add_argument("--input", required=True)
@@ -1086,8 +1100,88 @@ def _from_hyperfine(args: argparse.Namespace) -> dict[str, Any]:
     return _normalize_local(payload)
 
 
+def _self_test_capture(run_id: int, *, drop_second_job: bool) -> dict[str, Any]:
+    first, second = run_id * 10 + 1, run_id * 10 + 2
+
+    def job(job_id: int, name: str) -> dict[str, Any]:
+        return {
+            "id": job_id,
+            "name": name,
+            "status": "completed",
+            "conclusion": "success",
+            "started_at": "2026-01-01T00:01:00+00:00",
+            "completed_at": "2026-01-01T00:05:00+00:00",
+        }
+
+    jobs = [job(first, "build")]
+    if not drop_second_job:
+        jobs.append(job(second, "test"))
+    return {
+        "context": {
+            "repository": "owner/repo",
+            "workload_label": "self-test",
+            "validation_contract": "self-test",
+            "runner_toolchain": "self-test",
+            "cache_state": "warm",
+        },
+        "run": {
+            "id": run_id,
+            "run_attempt": 1,
+            "workflow_id": 1,
+            "head_sha": "0" * 40,
+            "event": "push",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "status": "completed",
+            "conclusion": "success",
+        },
+        "collection": {
+            "run_id": run_id,
+            "attempt": 1,
+            "selected_job_ids": [first, second],
+            "expected_job_ids": [first, second],
+            "captured_at": "2026-01-01T01:00:00+00:00",
+        },
+        "job_pages": [{"total_count": 2, "jobs": jobs}],
+    }
+
+
+def _self_test() -> None:
+    # An incomplete job page excludes the first run; it must not split the job set.
+    normalized = _normalize_ci(
+        {
+            "schema_version": SCHEMA_VERSION,
+            "source": CI_SOURCE,
+            "captures": [
+                _self_test_capture(1, drop_second_job=True),
+                _self_test_capture(2, drop_second_job=False),
+                _self_test_capture(3, drop_second_job=False),
+            ],
+        }
+    )
+    dataset, variants = _validate_normalized(json.loads(json.dumps(normalized)))
+    if "missing_expected_jobs" not in dataset["observations"][0]["reasons"]:
+        raise AssertionError("self-test fixture must exclude the first run")
+    if variants.jobset != 1:
+        raise AssertionError("excluded observation counted toward the job set")
+    names = _comparison_context(dataset, variants)["selected_job_names"]
+    if names != ["build", "test"]:
+        raise AssertionError(f"job names came from an excluded observation: {names}")
+    result = _compare_datasets(dataset, variants, dataset, variants, 2)
+    if not result["comparability"] or result["reasons"]:
+        raise AssertionError(f"comparison not comparable: {result['reasons']}")
+
+
 def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    args = parser.parse_args(argv)
+    if args.self_test:
+        if args.command is not None:
+            parser.error("--self-test takes no command")
+        _self_test()
+        print("ci-optimize: self-test passed")
+        return 0
+    if args.command is None:
+        parser.error("the following arguments are required: command")
     try:
         if args.command == "ci":
             result = _normalize_ci(_read_json(args.input))

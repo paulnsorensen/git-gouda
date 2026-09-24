@@ -69,6 +69,7 @@ python3 "$CI_OPTIMIZE_HELPER" compare --before BEFORE.json --after AFTER.json --
 
 Run this sequence separately for approved cache cohorts with distinct output paths.
 Use `--force` only to replace an existing explicit output file.
+Run `python3 "$CI_OPTIMIZE_HELPER" --self-test` to check that excluded runs do not change the job set.
 
 ## Evidence and report
 

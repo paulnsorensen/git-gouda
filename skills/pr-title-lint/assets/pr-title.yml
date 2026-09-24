@@ -3,6 +3,9 @@ name: pr-title
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
+  # A merge queue waits for every required check on the merge group.
+  # The job-level `if` skips the job there, and GitHub counts a skipped job as success.
+  merge_group:
 
 permissions:
   contents: read

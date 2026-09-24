@@ -4,6 +4,9 @@
 # Uses crazy-max/ghaction-github-labeler (verified in
 # references/label-scheme.md). skip-delete keeps sync additive until the
 # user explicitly authorizes deletions for this repo.
+#
+# The pinned actions run on Node 24. Self-hosted runners must be
+# Actions Runner v2.327.1 or later.
 
 name: labels-sync
 
@@ -13,11 +16,17 @@ on:
     paths:
       - ".github/labels.yml"
       - ".github/workflows/labels-sync.yml"
+  schedule:
+    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
 
 jobs:
   sync:

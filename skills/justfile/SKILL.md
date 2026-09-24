@@ -2,11 +2,10 @@
 name: justfile
 description: >
   Create or migrate to a justfile (casey/just command runner) for any project.
-  Use this skill when the user asks to add a justfile, replace a Makefile,
-  set up project commands, create task runners, or mentions "just" in the
-  context of build/dev workflows. Also trigger when you see a project with
-  a Makefile that would benefit from just's simpler syntax, or when setting
-  up a new project that needs common dev commands (build, test, lint, fmt).
+  Use this skill when the user asks to add a justfile, replace a Makefile with
+  just, set up project commands, create task runners, or mentions "just" in the
+  context of build/dev workflows. Do not trigger only because a project has a
+  Makefile or is new; the request must ask to create or migrate project commands.
   Covers Rust, Python, TypeScript/JavaScript, Go, and Ruby ecosystems.
   Do NOT use for CI pipeline configuration, Dockerfiles, or actual build system setup (cargo, webpack, etc.).
 license: MIT
@@ -134,7 +133,7 @@ test *args:
 - Use defaults for optional args: `test filter=""`
 - Use variadic for passthrough: `run *args`
 - Use `+args` (1+ required) sparingly
-- For ergonomic CLI flags (`just build --target x86_64`), use the
+- For ergonomic CLI flags (`just dist --target x86_64`), use the
   `[arg()]` attribute (v1.46+ — see "Recipe argument flags" below)
 
 **Aliases:** Add a one-letter alias for any recipe a developer will
@@ -346,11 +345,11 @@ recipes a human runs at the prompt:
 ```just
 [arg("target", long, help="Build target architecture")]
 [arg("release", long, value="true", help="Build in release mode")]
-build target release="false":
+dist target release="false":
     cargo build --target {{target}} {{ if release == "true" { "--release" } else { "" } }}
 ```
 
-Usage: `just build --target x86_64 --release`. Run `just --usage build`
+Usage: `just dist --target x86_64 --release`. Run `just --usage dist`
 to see the generated help.
 
 **Script blocks (`[script]`):** Cleaner than shebang recipes and
