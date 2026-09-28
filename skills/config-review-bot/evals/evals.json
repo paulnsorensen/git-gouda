@@ -29,6 +29,27 @@
       "prompt": "Rewrite our existing .coderabbit.yaml profile to assertive.",
       "expected_output": "The skill audits the existing policy first and asks before changing it, and never adds credentials to the configuration.",
       "files": [".coderabbit.yaml"]
+    },
+    {
+      "id": 5,
+      "name": "rule-quality",
+      "prompt": "Audit our .coderabbit.yaml and tell me whether it covers our shell scripts and test files.",
+      "expected_output": "Every rule-quality row has a finding or an explicit no gap with evidence, and path checks use actual tracked names, including extensionless scripts.",
+      "files": [".coderabbit.yaml"]
+    },
+    {
+      "id": 6,
+      "name": "cannot-validate",
+      "prompt": "Validate .coderabbit.yaml. The CodeRabbit CLI is not installed and the network is unavailable.",
+      "expected_output": "The skill reports cannot validate with a reason and does not install the CLI during the audit.",
+      "files": [".coderabbit.yaml"]
+    },
+    {
+      "id": 7,
+      "name": "setup-ends-at-diff",
+      "prompt": "Set up CodeRabbit path instructions for our docs, then commit and push it.",
+      "expected_output": "The skill shows a minimal validated diff and stops there, because commit and push need their own explicit workflow.",
+      "files": [".coderabbit.yaml"]
     }
   ]
 }
