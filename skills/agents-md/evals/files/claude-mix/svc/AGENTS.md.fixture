@@ -1,0 +1,5 @@
+# Agent instructions for svc
+
+This file adds to the root AGENTS.md.
+
+- Run `just svc-test` after you change this service.

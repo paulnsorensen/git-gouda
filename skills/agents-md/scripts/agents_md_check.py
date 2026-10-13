@@ -7,11 +7,11 @@ and the mirror status of CLAUDE.md, .github/copilot-instructions.md, and
 GEMINI.md relative to the canonical AGENTS.md.
 
 Caps: OpenAI Codex concatenates AGENTS.md files from the repository root down
-to the working directory. It truncates the file that crosses 32 KiB and drops
-every file after it (see references/harness-matrix.md). The script sums every
-root-to-directory chain that ends at or below the checked file and applies
-the cap to the largest one. A line count over ~200 is a soft readability
-flag, not a hard cap.
+to the working directory. It stops adding files when the combined size
+reaches 32 KiB, so the files nearest the working directory drop first (see
+references/harness-matrix.md). The script sums every root-to-directory chain
+that ends at or below the checked file and applies the cap to the largest
+one. A line count over ~200 is a soft readability flag, not a hard cap.
 
 Root discovery and skip rules match Codex:
 - The root is the nearest directory at or above the checked file that

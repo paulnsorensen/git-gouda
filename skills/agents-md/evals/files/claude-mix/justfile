@@ -1,0 +1,8 @@
+# Recipes.
+test:
+    go test ./...
+
+svc-test:
+    go test ./svc/...
+
+ci: test

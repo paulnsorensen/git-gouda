@@ -35,13 +35,26 @@ as an operational README for agents, not a second product README
   `scripts/agents_md_check.py` checks every backticked `just <recipe>`
   against the real `justfile`; treat a reported miss as a required fix, not
   a false positive.
-- Long reference material that belongs in a linked doc instead of inline.
+- Long reference material that belongs in a linked doc instead of inline,
+  such as detailed API documentation. Name the doc and when to read it.
   Every harness loads the full file on every turn
   (<https://code.claude.com/docs/en/memory>;
-  <https://learn.chatgpt.com/docs/agent-configuration/agents-md>), so length
-  is a recurring token cost, not a one-time read.
+  <https://developers.openai.com/codex/guides/agents-md/>), so length is a
+  recurring token cost, not a one-time read. Claude Code's guidance lists
+  "Detailed API documentation (link to docs instead)" under exclude
+  (<https://code.claude.com/docs/en/best-practices>).
+- Repository overviews and file-by-file layout descriptions. Claude Code's
+  guidance excludes "File-by-file descriptions of the codebase"
+  (<https://code.claude.com/docs/en/best-practices>). The ETH preprint
+  below found that repository overviews do not help.
+- Style rules that a linter or formatter already enforces. The gate command
+  already catches each violation.
 - Anything that only CI or sandboxing should enforce (a rule an agent
   cannot violate even if it tried does not need to be stated as a rule).
+
+Pruning test from Claude Code's guidance: for each line, ask "Would
+removing this cause Claude to make mistakes?" If not, cut it
+(<https://code.claude.com/docs/en/best-practices>).
 
 ## Effectiveness evidence is mixed
 
@@ -49,24 +62,27 @@ Do not present `AGENTS.md` as a guaranteed task-success lift. Two 2026
 preprints reach different conclusions using different benchmarks and
 methods:
 
-- One preprint reports a root `AGENTS.md` correlates with reduced token
-  usage and faster completion on real pull requests — a correlational
-  finding on efficiency, not a controlled trial of task success.
+- One preprint reports lower median runtime (28.64%) and lower output
+  token use (16.58%) on 124 pull requests in 10 repositories, with
+  comparable task completion. The finding is correlational.
   Source: <https://arxiv.org/abs/2601.20404> ("On the Impact of AGENTS.md
   Files on the Efficiency of AI Coding Agents")
-- A separate study from ETH Zurich / LogicStar.ai found no significant
-  improvement in task-success rate on SWE-bench Lite or a custom CTXbench
-  benchmark. That preprint's own primary URL was not independently
-  re-verified in this pass; cite the efficiency preprint above directly,
-  and describe this second study as a named, findable conflicting result
-  rather than restating its numbers second-hand.
+- The ETH Zurich and LogicStar.ai preprint reports that context files do
+  not generally improve task success rates and raise inference cost by
+  over 20% on average. It finds them useful for non-standard
+  coding practices, and finds repository overviews unhelpful.
+  Source: <https://arxiv.org/abs/2602.11988> ("Evaluating AGENTS.md: Are
+  Repository-Level Context Files Helpful for Coding Agents?")
 
 Keep the file for the token-cost and precedence reasons in
 `harness-matrix.md`, not on a promised task-success guarantee.
 
 ## Nested AGENTS.md
 
-For a monorepo or multi-package repository, add a nested `AGENTS.md` per
-package and state explicitly whether it inherits the root file's rules or
-replaces them — the spec does not merge files automatically.
-Source: <https://agents.md>
+For a monorepo or multi-package repository, add a nested `AGENTS.md` only
+to a package that needs its own rules. Harnesses load the nested file
+together with its ancestors, so the nested file holds only the package's
+delta. Name each root rule that the nested file overrides. The spec says
+only that the closest file takes precedence (<https://agents.md>). Codex,
+Claude Code, Cursor, and Gemini CLI document additive loading; see
+`harness-matrix.md` for the sources.
