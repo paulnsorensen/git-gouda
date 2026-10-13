@@ -75,10 +75,8 @@ clean:
 ```
 
 **Keep `lint` and `typecheck` as separate recipes and separate npm scripts.**
-Conflating them (e.g. `"lint": "tsc --noEmit"`) breaks rtk's `npm run <script>`
-wrapper, which infers tool output format from the script name. More importantly,
-the name is a lie — ESLint/biome lints, tsc typechecks. Name the script after
-what it runs.
+Conflating them (e.g. `"lint": "tsc --noEmit"`) makes the name a lie —
+ESLint/biome lints, tsc typechecks. Name the script after what it runs.
 
 ## Bun variant
 

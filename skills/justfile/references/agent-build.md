@@ -62,13 +62,6 @@ ledger on every failure. The gate still exits non-zero — the attribute only
 drops the redundant banner, keeping the failure output to the `✗` step plus its
 captured `file:line`.
 
-### rtk upgrade path
-
-The `step` helper is portable (bash only). When the project has `rtk` installed,
-swap `step test CMD` for `rtk test CMD` (and `step <other> CMD` for `rtk err
-CMD`) to get per-tool smart filtering on top of quiet-on-success — see
-`rtk.md`. Don't require rtk; the bash `step` is the floor.
-
 ### No `[script]` / older just
 
 On a just older than 1.44 (where `[script]` isn't yet stable), or if you'd

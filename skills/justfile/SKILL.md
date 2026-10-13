@@ -218,16 +218,9 @@ threshold fails. (This supersedes the old "skip coverage to save tokens"
 advice: keep coverage in the gate; let compaction, not omission, handle the
 token cost.)
 
-For the granular recipes the gate composes, still apply:
-
-1. **`@` prefix + tool flags.** Silence recipe echo; pass `--silent --no-audit
-   --no-fund` to npm to drop banner/audit/fund noise.
-
-2. **rtk upgrade.** When the project has rtk installed, swap the `step` calls in
-   `_gate` for `rtk test` / `rtk err` to get per-tool smart filtering on top of
-   quiet-on-success. See `references/rtk.md` for the shell-wrap pattern and the
-   npm script-naming gotcha. rtk is an upgrade, never a requirement — the bash
-   `step` helper is the portable floor.
+For the granular recipes the gate composes, use the `@` prefix to silence
+recipe echo, and pass `--silent --no-audit --no-fund` to npm to drop
+banner/audit/fund noise.
 
 ### 5. Update project docs (mandatory)
 
