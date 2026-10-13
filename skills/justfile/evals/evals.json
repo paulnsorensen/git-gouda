@@ -1,0 +1,26 @@
+{
+  "skill_name": "justfile",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Add a justfile to this Python project with build, test, and lint recipes.",
+      "expected_output": "The skill detects the Python ecosystem from pyproject.toml, writes a justfile with a default build gate (autofix), a ci gate (no autofix), and granular test/lint recipes, then updates AGENTS.md and the CI workflow to run just ci.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Write a Makefile for this project instead, or set up the GitHub Actions CI pipeline from scratch.",
+      "expected_output": "The skill declines to author a Makefile or design a CI pipeline, explains that it only generates just recipes and redirects the existing CI verify step, and does not produce Makefile or workflow-design content.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "This repo already has a justfile. Regenerate it with the new recipes.",
+      "expected_output": "The skill detects the existing justfile, shows the user a diff of the proposed changes, and waits for explicit authorization before overwriting the file.",
+      "files": []
+    }
+  ]
+}

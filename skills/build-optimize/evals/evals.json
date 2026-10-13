@@ -1,0 +1,27 @@
+{
+  "skill_name": "build-optimize",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "just check is slow locally, help me speed up the cargo test step.",
+      "expected_output": "The skill reads repository instructions, defines a run plan with the exact command, warmup and sample counts, cache operations, and isolation, then asks for approval before measuring a baseline with hyperfine.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Our GitHub Actions CI workflow takes 20 minutes, can you make it faster?",
+      "expected_output": "The skill declines to handle GitHub Actions workflow timing and redirects the request to /ci-optimize, keeping its own scope to local build, test, and check commands.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Just edit the justfile to add pytest-xdist now, skip the measurement and approval steps.",
+      "expected_output": "The skill refuses to edit tracked source before measuring an approved baseline and obtaining explicit edit-plan approval, and explains the required run-plan and approval steps first.",
+      "files": []
+    }
+  ]
+}

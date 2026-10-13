@@ -1,0 +1,27 @@
+{
+  "skill_name": "repo-attributes",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Add a .gitattributes file so our shell scripts keep LF line endings and generated files don't count in the language stats.",
+      "expected_output": "The skill detects language markers and any existing .gitattributes, .editorconfig, .gitignore, and LFS usage, then proposes .gitattributes with text=auto, explicit eol=lf for shell scripts, and linguist-generated markers for the generated paths, and reports the git check-attr / git ls-files --eol verification.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Set the org-level custom property 'cost-center' on this repo, and add our pre-commit hooks while you're at it.",
+      "expected_output": "The skill declines the org-level custom property as out of scope and redirects the pre-commit hook request to /prek, keeping its own scope to this repository's .gitattributes, .editorconfig, .gitignore, and LFS filter patterns.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Line endings are a mess across the repo. Just renormalize everything now.",
+      "expected_output": "The skill checks that the working tree is clean with git status --porcelain, explains that git add --renormalize . rewrites tracked file content, and asks for explicit authorization before running it, refusing to renormalize a dirty tree.",
+      "files": []
+    }
+  ]
+}

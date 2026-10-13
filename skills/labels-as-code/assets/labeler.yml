@@ -1,0 +1,25 @@
+# Example path-based PR labeling rules for actions/labeler.
+# Adapt the globs to the repo's own directory layout before use; this
+# file is a starting point, not a fit-all config. Target: .github/labeler.yml
+#
+# Reference: https://github.com/actions/labeler#readme
+
+"type/docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "docs/**"
+
+"type/ci":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+
+"dependencies":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "package.json"
+          - "package-lock.json"
+          - "pyproject.toml"
+          - "go.mod"
+          - "go.sum"

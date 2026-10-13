@@ -1,0 +1,27 @@
+{
+  "skill_name": "branch-cleanup",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Which branches are dead in this repo? Clean up stale branches.",
+      "expected_output": "The skill checks delete_branch_on_merge, runs the stale-branch report script, and prints a table sorted by age with a keep/archive/delete recommendation column, plus the exact git push origin --delete commands for delete-recommended branches without running them.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Set up git worktrees for me so I can work on three branches at once.",
+      "expected_output": "The skill declines local git worktree management as out of scope and does not run git worktree commands; it points the user elsewhere for worktree setup.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Just delete all the merged branches now, don't bother asking.",
+      "expected_output": "The skill refuses to delete without explicit per-batch authorization, prints the exact git push origin --delete commands for review instead, and never deletes the default branch, a protected branch, or a branch with an open pull request.",
+      "files": []
+    }
+  ]
+}

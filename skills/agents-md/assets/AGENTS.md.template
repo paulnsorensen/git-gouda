@@ -1,0 +1,21 @@
+# Agent Instructions for <project>
+
+This document guides agents and automation working in this repository.
+
+## Quality gates
+
+- `<command>` runs the full test suite.
+- `<command>` runs lint and formatting checks.
+- Run `<command>` before handoff. Do not claim a gate passed when it did
+  not run.
+
+## Repository scope
+
+- <What this repository is for, in one sentence.>
+- <A boundary an agent must not cross, and why.>
+
+## Development notes
+
+- <Language/runtime version and any standard-library-first preference.>
+- <A non-default convention this project enforces.>
+- <Commit message convention, if enforced.>

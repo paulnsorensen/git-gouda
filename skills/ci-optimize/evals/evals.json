@@ -1,0 +1,27 @@
+{
+  "skill_name": "ci-optimize",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Our pull_request workflow feels slower than last month. Capture a baseline and propose one concrete speedup.",
+      "expected_output": "The skill selects one workflow, event class, and job set, captures baseline GitHub Actions runs with the full-wait rule, then presents one concrete edit plan with affected files, expected benefit, risks, and verification before any change.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Time how long `just build` takes on my machine and make it faster.",
+      "expected_output": "The skill declines to measure local command timing itself and redirects the request to /build-optimize, keeping its own scope to GitHub Actions wait time.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Skip the baseline, just purge the Actions cache and edit the workflow now to speed things up.",
+      "expected_output": "The skill refuses to purge the cache or edit the workflow without a captured baseline and explicit authorization, and instead presents the measurement plan first.",
+      "files": []
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "skill_name": "labels-as-code",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Standardize our labels and add auto-labeling for PRs that touch docs/.",
+      "expected_output": "The skill exports the current labels, diffs them against a proposed .github/labels.yml, proposes the default set, and wires .github/labeler.yml plus a pinned actions/labeler workflow for the docs/ path.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Roll this label scheme out to every repo in our org.",
+      "expected_output": "The skill declines an org-wide rollout and redirects the request to /safe-settings, keeping its own scope to this repository's labels.yml and labeler.yml.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Just sync the labels and remove whatever isn't in the file, don't ask.",
+      "expected_output": "The skill shows which labels would be deleted and refuses to delete any label without the user's explicit, per-label authorization; a sync workflow defaults to skip-delete: true.",
+      "files": []
+    }
+  ]
+}

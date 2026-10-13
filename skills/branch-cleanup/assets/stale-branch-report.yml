@@ -1,0 +1,91 @@
+# Scheduled stale-branch report. Report-only: it never deletes a branch.
+#
+# Applies the same classification as scripts/stale_branches.py (see
+# references/policy.md): a branch is `keep` when protected by a ruleset or
+# when an open pull request targets it, `keep` when the rules query or the
+# pull-request query fails, `delete` when merged, `archive` when unmerged
+# and past the age threshold, `keep` otherwise. The workflow
+# writes the table to the job summary only.
+
+name: stale branch report
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  report:
+    name: report stale branches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Report stale branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DAYS: "90"
+        run: |-
+          set -euo pipefail
+          default_branch="$(gh repo view "$REPO" --json defaultBranchRef --jq '.defaultBranchRef.name')"
+          summary="$GITHUB_STEP_SUMMARY"
+          {
+            echo "# Stale branch report"
+            echo
+            echo "| branch | age (days) | author | merged | open PR | protected | recommendation |"
+            echo "|---|---|---|---|---|---|---|"
+          } | tee -a "$summary" >/dev/null
+          now_epoch="$(date -u +%s)"
+          # lstrip=3 drops refs/remotes/origin/ and keeps HEAD as HEAD, so the
+          # symbolic origin/HEAD ref never appears as a branch named "origin".
+          git for-each-ref --format='%(refname:lstrip=3)' "refs/remotes/origin" \
+            | grep -vx -e 'HEAD' -e "$default_branch" \
+            | while IFS= read -r branch; do
+                ref="origin/$branch"
+                commit_date="$(git log -1 --format=%cI "$ref")"
+                author="$(git log -1 --format=%an "$ref")"
+                commit_epoch="$(date -u -d "$commit_date" +%s)"
+                age_days=$(( (now_epoch - commit_epoch) / 86400 ))
+                merged="false"
+                if git branch -r --merged "$default_branch" | grep -qx "  $ref"; then
+                  merged="true"
+                fi
+                open_pr="false"
+                if pr_count="$(gh pr list --repo "$REPO" --head "$branch" --state open --json number --jq 'length')"; then
+                  if [ "$pr_count" -gt 0 ]; then
+                    open_pr="true"
+                  fi
+                else
+                  open_pr="unknown"
+                fi
+                protected="unknown"
+                if rule_count="$(gh api "repos/$REPO/rules/branches/$branch" --jq 'length')"; then
+                  if [ "$rule_count" -gt 0 ]; then
+                    protected="true"
+                  else
+                    protected="false"
+                  fi
+                fi
+                recommendation="keep"
+                if [ "$protected" = "false" ] && [ "$open_pr" = "false" ]; then
+                  if [ "$merged" = "true" ]; then
+                    recommendation="delete"
+                  elif [ "$age_days" -ge "$DAYS" ]; then
+                    recommendation="archive"
+                  fi
+                fi
+                branch_cell="${branch//|/\\|}"
+                author_cell="${author//|/\\|}"
+                printf '| %s | %s | %s | %s | %s | %s | %s |\n' \
+                  "$branch_cell" "$age_days" "$author_cell" "$merged" "$open_pr" "$protected" "$recommendation" \
+                  | tee -a "$summary" >/dev/null
+              done
