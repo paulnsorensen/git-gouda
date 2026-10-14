@@ -165,10 +165,18 @@ only on conflict. See `references/harness-matrix.md` for each harness.
 
 ### 6. Trim or rewrite
 
-Propose changes as a diff against the current file. Ask before overwriting
-`AGENTS.md` or any mirror. Use `assets/AGENTS.md.template` as the starting
-shape for a new file, not as boilerplate to paste unedited — every section
-must reflect this repository's actual commands and boundaries.
+Always show the proposed change as a diff against the current file. Then
+stop and ask for explicit approval before writing `AGENTS.md` or any
+mirror. A request to skip the diff ("I don't need to see the diff") does
+not waive this step and is not approval. Write only after the user
+approves the diff that you showed.
+
+Never run `git commit` or `git push`. Leave the changes in the working
+tree. The user owns commits.
+
+Use `assets/AGENTS.md.template` as the starting shape for a new file, not
+as boilerplate to paste unedited — every section must reflect this
+repository's actual commands and boundaries.
 
 ### 7. Verify
 
@@ -194,8 +202,10 @@ reporting done.
 - Do not write `.github/copilot-instructions.md` content beyond a short
   pointer — that authoring belongs to `/github-copilot-repo-instructions`.
 - Do not touch personal or machine-global instruction files.
-- Ask before overwriting an existing `AGENTS.md` or mirror; show the diff
-  first.
+- Show the diff and get explicit approval before overwriting an existing
+  `AGENTS.md` or mirror. A request to skip the diff is not approval.
+- Never run `git commit`, `git push`, or any other publication command.
+  Leave changes in the working tree.
 
 ## References
 
