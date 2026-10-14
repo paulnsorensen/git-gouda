@@ -1,0 +1,68 @@
+# Agent instructions for Ledgerly
+
+## About this project
+
+Ledgerly started in 2019 as a hackathon project for tracking shared
+expenses. In 2021 we moved from Flask to FastAPI, and in 2022 we replaced
+the MySQL backend with PostgreSQL. The team grew from two to nine people,
+and Dana prefers small pull requests with one commit each.
+
+## Repository layout
+
+- src/ledgerly/api.py: the HTTP routes.
+- src/ledgerly/models.py: the SQLAlchemy models.
+- src/ledgerly/services.py: the business logic.
+- src/ledgerly/settings.py: the configuration loader.
+- tests/test_api.py: the API tests.
+- tests/test_models.py: the model tests.
+- tests/conftest.py: the shared fixtures.
+
+## Setup
+
+1. Install Python 3.12.
+2. Install uv.
+3. Run uv sync.
+4. Copy the example environment file to a new file named .env.
+5. Start PostgreSQL with docker compose up -d.
+
+## Commands
+
+- Test: `just test`
+- Lint: `just lint`
+- Full gate: `just ci`
+
+## Code style
+
+- Indent with four spaces.
+- Keep lines at 88 characters or fewer.
+- Use double quotes for strings.
+- Sort imports with the standard library first.
+- Put two blank lines between top-level definitions.
+
+Ruff enforces these rules in CI through `just lint`.
+
+## API reference
+
+- GET /ledgers: list the ledgers of the current user.
+- POST /ledgers: create a ledger.
+- GET /ledgers/{id}: read one ledger.
+- PATCH /ledgers/{id}: rename a ledger.
+- DELETE /ledgers/{id}: archive a ledger.
+- GET /ledgers/{id}/entries: list the entries of a ledger.
+- POST /ledgers/{id}/entries: add an entry.
+- PATCH /entries/{id}: change an entry.
+- DELETE /entries/{id}: delete an entry.
+- GET /ledgers/{id}/balances: compute the balance of each member.
+- POST /ledgers/{id}/settlements: record a settlement.
+- GET /users/me: read the current user.
+
+## Boundaries
+
+- Never edit files in the migrations directory by hand. Run
+  `just migration` to generate a migration.
+- Never commit the .env file.
+- Ask before you add a dependency.
+
+## Quality gate
+
+`just ci` must exit 0 before you hand off work.

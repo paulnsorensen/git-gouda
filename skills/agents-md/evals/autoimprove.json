@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "status": "approved",
+  "skill": "agents-md",
+  "invocation": "$agents-md",
+  "kinds": {
+    "task": {
+      "grader": "judge",
+      "rubric": "Score the run against `reference.assertions`. Use `reference.expected_output` only as context. Give 0 when the run breaks any assertion that starts with 'Guardrail:'. Give 0 when the run produces no answer or audits files that are not in the case snapshot. A fixture file that ends in .fixture stands for the same name without that suffix. Otherwise start at 100. Subtract 100 divided by the number of assertions for each assertion that the run does not satisfy. Subtract the same amount for each false finding, such as a stale command or path that the fixture defines. Subtract the same amount for each harness claim that contradicts the assertions, such as a claim that a nested AGENTS.md replaces its ancestors. Do not go below 0."
+    }
+  },
+  "editable": [
+    "SKILL.md",
+    "references/content-checklist.md",
+    "assets/AGENTS.md.template",
+    "scripts/agents_md_check.py"
+  ]
+}

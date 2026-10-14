@@ -70,8 +70,12 @@ a `CLAUDE.md`.
 ### 2. Measure
 
 ```bash
-python3 skills/agents-md/scripts/agents_md_check.py [path/to/AGENTS.md]
+python3 "$AGENTS_MD_CHECK" [path/to/AGENTS.md]
 ```
+
+Resolve `AGENTS_MD_CHECK` from the loaded `SKILL.md` directory
+(`scripts/agents_md_check.py`), resolving symlinks first. Do not assume the
+skill sits at `skills/agents-md/` in the target repository.
 
 Reports bytes, lines, the heading map, every referenced `just <recipe>`
 checked against a nearby `justfile`, every referenced repo-relative path,
@@ -79,9 +83,10 @@ and the mirror status of `CLAUDE.md`, `.github/copilot-instructions.md`, and
 `GEMINI.md`. Flag a file over ~200 lines as a soft readability warning. The
 script also sums the `AGENTS.md` chain from the repository root to each
 directory at or below the checked file. A chain over 32 KiB fails outright.
-OpenAI Codex concatenates that chain, truncates the file that crosses
-32 KiB, and drops every file after it
-(<https://learn.chatgpt.com/docs/agent-configuration/agents-md>).
+OpenAI Codex concatenates that chain from the root down. It stops adding
+files when the combined size reaches `project_doc_max_bytes` (32 KiB by
+default), so the files nearest the working directory drop first
+(<https://developers.openai.com/codex/guides/agents-md/>).
 
 Root discovery and skip rules follow Codex:
 
@@ -141,11 +146,22 @@ collapsing it to a pointer or removing it.
 
 ### 5. Nested AGENTS.md
 
-For a monorepo or multi-package layout, a nested `AGENTS.md` in a
-subdirectory is standard practice across the agents.md spec, Codex, Copilot,
-and Cursor: the nearest file to the edited path wins. State explicitly in
-the nested file whether it inherits from the root or replaces it — the spec
-itself does not merge files, so silence reads as "replaces".
+For a monorepo or multi-package layout, put a nested `AGENTS.md` in each
+package that needs its own rules. Codex, Claude Code, Cursor, Gemini CLI,
+and Copilot CLI load the nested file together with every ancestor file. No
+harness replaces the root file with the nested file. The nearer file wins
+only on conflict. See `references/harness-matrix.md` for each harness.
+
+- Put only the subtree's delta in the nested file: its own commands,
+  boundaries, and exceptions. A copied root rule loads twice on every turn
+  and drifts.
+- State each exception to a root rule explicitly, and name the root rule
+  that it replaces. VS Code warns that harnesses do not share one
+  precedence order.
+- Keep every root-to-leaf chain under the Codex 32 KiB cap. Codex drops
+  the nearest files first.
+- Claude Code reads a nested `AGENTS.md` only when that directory has no
+  `CLAUDE.md` of its own.
 
 ### 6. Trim or rewrite
 
@@ -157,8 +173,8 @@ must reflect this repository's actual commands and boundaries.
 ### 7. Verify
 
 ```bash
-python3 skills/agents-md/scripts/agents_md_check.py --self-test
-python3 skills/agents-md/scripts/agents_md_check.py
+python3 "$AGENTS_MD_CHECK" --self-test
+python3 "$AGENTS_MD_CHECK"
 ```
 
 Both must exit 0. Re-run any command the audit changed or added before

@@ -1,0 +1,18 @@
+# Agent instructions
+
+This monorepo holds the web and api packages.
+
+## Commands
+
+- Test every package: `just test`
+- Lint every package: `just lint`
+
+## Conventions
+
+- Use TypeScript strict mode.
+- Use Conventional Commits.
+- Never commit secrets or .env files.
+
+## Quality gate
+
+`just ci` must exit 0 before you hand off work.

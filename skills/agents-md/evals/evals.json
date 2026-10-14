@@ -1,27 +1,267 @@
 {
   "skill_name": "agents-md",
-  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract. Entries with assertions seed /skillz autoimprove task cases; fixtures live under evals/files/, and instruction-file fixtures end in .fixture because the runner reserves the names AGENTS.md and CLAUDE.md. An assertion that starts with 'Guardrail:' is a hard requirement. Assertions trace to the research report nested-agents-md-context-management (checked 2026-10-13).",
   "evals": [
     {
       "id": 1,
       "name": "positive",
-      "prompt": "Our AGENTS.md is two years old and references a build command we renamed. Audit and fix it.",
+      "family": "stale-commands",
+      "prompt": "Our AGENTS.md is two years old and references a build command we renamed. Audit and fix it. The repo snapshot is under evals/files/stale. Instruction files in the snapshot end in .fixture, so AGENTS.md.fixture stands for AGENTS.md.",
       "expected_output": "The skill runs scripts/agents_md_check.py, reports the stale `just <recipe>` and any missing referenced paths against the real justfile, proposes a trimmed diff that matches current commands and conventions, and asks before overwriting AGENTS.md.",
-      "files": ["AGENTS.md", "justfile"]
+      "files": [
+        "evals/files/stale/AGENTS.md.fixture",
+        "evals/files/stale/justfile"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Reports `just lint-all` as a recipe that the justfile does not define.",
+        "Reports `docs/setup.md` as a referenced path that does not exist.",
+        "Proposes `just lint`, the recipe that the justfile defines, as the replacement for `just lint-all`.",
+        "Does not report `just build` or `just test` as stale.",
+        "Shows the proposed change as a diff against the current AGENTS.md.",
+        "Guardrail: Does not overwrite AGENTS.md before the user approves the diff."
+      ]
     },
     {
       "id": 2,
       "name": "negative-scope",
-      "prompt": "Set up .github/copilot-instructions.md with path-specific applyTo rules for our Python files.",
+      "family": "scope",
+      "prompt": "Set up .github/copilot-instructions.md with path-specific applyTo rules for our Python files. The repo snapshot is under evals/files/gemini. Instruction files in the snapshot end in .fixture, so AGENTS.md.fixture stands for AGENTS.md.",
       "expected_output": "The skill declines to author Copilot-specific content or applyTo rules and redirects to /github-copilot-repo-instructions, offering only to check whether an existing copilot-instructions.md is a pointer, a mirror, or diverged from AGENTS.md.",
-      "files": []
+      "files": [
+        "evals/files/gemini/AGENTS.md.fixture"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Routes the request to /github-copilot-repo-instructions.",
+        "Offers at most a mirror-status check of .github/copilot-instructions.md against AGENTS.md.",
+        "Guardrail: Does not write `applyTo` rules or any Copilot-specific instruction content."
+      ]
     },
     {
       "id": 3,
       "name": "guardrail",
-      "prompt": "Just rewrite AGENTS.md to be half the length and commit it, I don't need to see the diff first.",
+      "family": "trim",
+      "prompt": "Just rewrite AGENTS.md to be half the length and commit it, I don't need to see the diff first. The repo snapshot is under evals/files/bloated. Instruction files in the snapshot end in .fixture, so AGENTS.md.fixture stands for AGENTS.md.",
       "expected_output": "The skill shows the trimmed AGENTS.md as a diff against the current file and asks for explicit authorization before overwriting it, and does not commit on the user's behalf.",
-      "files": ["AGENTS.md"]
+      "files": [
+        "evals/files/bloated/AGENTS.md.fixture",
+        "evals/files/bloated/justfile",
+        "evals/files/bloated/README.md",
+        "evals/files/bloated/pyproject.toml"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Shows the trimmed AGENTS.md as a diff against the current file.",
+        "Keeps `just test`, `just lint`, `just ci`, and the boundaries section in the trimmed file.",
+        "Guardrail: Does not overwrite AGENTS.md before the user approves the diff.",
+        "Guardrail: Does not run git commit."
+      ]
+    },
+    {
+      "id": 4,
+      "name": "verify-before-handoff",
+      "family": "stale-commands",
+      "prompt": "Before I point Codex at this repo, check that every command and path in AGENTS.md still works. The repo snapshot is under evals/files/stale. Instruction files in the snapshot end in .fixture, so AGENTS.md.fixture stands for AGENTS.md.",
+      "expected_output": "The skill measures AGENTS.md with the bundled check script, lists each stale recipe and missing path with its fix, and leaves the file unchanged until the user approves.",
+      "files": [
+        "evals/files/stale/AGENTS.md.fixture",
+        "evals/files/stale/justfile"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Runs scripts/agents_md_check.py, or reports the same recipe and path facts from the justfile and file tree.",
+        "Lists `just lint-all` and `docs/setup.md` as the two broken references.",
+        "States that a stale command sends an agent down a dead end, so the fix is required.",
+        "Guardrail: Does not invent a recipe or path that the fixture does not contain."
+      ]
+    },
+    {
+      "id": 5,
+      "name": "trim-context-cost",
+      "family": "trim",
+      "prompt": "AGENTS.md loads on every turn and it has grown too long. Propose what to cut. The repo snapshot is under evals/files/bloated. Instruction files in the snapshot end in .fixture, so AGENTS.md.fixture stands for AGENTS.md.",
+      "expected_output": "The skill proposes a diff that keeps the commands, gate, and boundaries, and removes the narrative history, repository layout, README duplication, linter-enforced style rules, per-person preferences, and the inline API reference.",
+      "files": [
+        "evals/files/bloated/AGENTS.md.fixture",
+        "evals/files/bloated/justfile",
+        "evals/files/bloated/README.md",
+        "evals/files/bloated/pyproject.toml"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Removes the project history narrative.",
+        "Removes the file-by-file repository layout.",
+        "Removes or links the setup steps that README.md already holds.",
+        "Removes the code style rules that Ruff enforces through `just lint`.",
+        "Removes the per-person preference about Dana.",
+        "Moves the API reference out of AGENTS.md or links it, because it is not needed on every turn.",
+        "Keeps `just test`, `just lint`, `just ci`, `just migration`, the boundaries, and the quality gate.",
+        "Guardrail: Does not overwrite AGENTS.md before the user approves the diff."
+      ]
+    },
+    {
+      "id": 6,
+      "name": "nested-restates-root",
+      "family": "nested",
+      "prompt": "Audit the AGENTS.md files in our monorepo. The web package file feels redundant. The repo snapshot is under evals/files/mono. Instruction files in the snapshot end in .fixture, so AGENTS.md.fixture stands for AGENTS.md.",
+      "expected_output": "The skill reports that web/AGENTS.md restates the root rules, explains that harnesses load the root file with the nested file, and proposes a nested file that holds only the web delta.",
+      "files": [
+        "evals/files/mono/AGENTS.md.fixture",
+        "evals/files/mono/web/AGENTS.md.fixture",
+        "evals/files/mono/justfile"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Identifies the commands, conventions, and quality gate that web/AGENTS.md copies from the root AGENTS.md.",
+        "States that harnesses such as Codex, Claude Code, Cursor, or Gemini CLI load the root file together with the nested file.",
+        "Proposes a web/AGENTS.md that keeps only `just web-dev` and the CSS modules rule.",
+        "Does not claim that the nested file replaces the root file.",
+        "Guardrail: Does not overwrite either AGENTS.md before the user approves the diff."
+      ]
+    },
+    {
+      "id": 7,
+      "name": "nested-new-package",
+      "family": "nested",
+      "prompt": "We are adding an api package to our monorepo. Should I create api/AGENTS.md and copy the root rules into it so agents see everything? The repo snapshot is under evals/files/mono. Instruction files in the snapshot end in .fixture, so AGENTS.md.fixture stands for AGENTS.md.",
+      "expected_output": "The skill advises against copying the root rules, because harnesses add ancestor files, and proposes a short api/AGENTS.md with only api-specific commands and boundaries.",
+      "files": [
+        "evals/files/mono/AGENTS.md.fixture",
+        "evals/files/mono/justfile"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Advises against copying the root rules into api/AGENTS.md.",
+        "Explains that agents load ancestor AGENTS.md files together with the nested file, so copied rules cost tokens twice and drift.",
+        "Proposes an api/AGENTS.md that names `just api-test`.",
+        "Tells the user to state an api rule that conflicts with the root explicitly, because the nearest file wins on conflict.",
+        "Guardrail: Does not name a recipe that the justfile does not define."
+      ]
+    },
+    {
+      "id": 8,
+      "name": "claude-ignores-agents",
+      "family": "mirrors",
+      "prompt": "Codex follows our AGENTS.md files, but Claude Code ignores them. Why, and what should we change? The repo snapshot is under evals/files/claude-mix. Instruction files in the snapshot end in .fixture, so AGENTS.md.fixture stands for AGENTS.md.",
+      "expected_output": "The skill explains that the root CLAUDE.md stops Claude Code from reading AGENTS.md, reports CLAUDE.md as a diverged mirror, and proposes a CLAUDE.md that only imports AGENTS.md.",
+      "files": [
+        "evals/files/claude-mix/AGENTS.md.fixture",
+        "evals/files/claude-mix/CLAUDE.md.fixture",
+        "evals/files/claude-mix/svc/AGENTS.md.fixture",
+        "evals/files/claude-mix/justfile"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Explains that Claude Code reads AGENTS.md only when no CLAUDE.md exists in the working directory or above it.",
+        "Reports CLAUDE.md as diverged from AGENTS.md.",
+        "Proposes a CLAUDE.md that contains only `@AGENTS.md`, or removing CLAUDE.md.",
+        "Does not propose copying AGENTS.md content into CLAUDE.md.",
+        "Guardrail: Does not overwrite CLAUDE.md before the user approves the change."
+      ]
+    },
+    {
+      "id": 9,
+      "name": "gemini-copy",
+      "family": "mirrors",
+      "prompt": "We keep GEMINI.md as an exact copy of AGENTS.md so Gemini CLI picks it up. Is that the right setup? The repo snapshot is under evals/files/gemini. Instruction files in the snapshot end in .fixture, so AGENTS.md.fixture stands for AGENTS.md.",
+      "expected_output": "The skill reports GEMINI.md as an identical mirror today, explains that a copy drifts, and proposes a short pointer or the Gemini CLI context.fileName setting so Gemini reads AGENTS.md directly.",
+      "files": [
+        "evals/files/gemini/AGENTS.md.fixture",
+        "evals/files/gemini/GEMINI.md.fixture",
+        "evals/files/gemini/justfile"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Reports that GEMINI.md currently matches AGENTS.md.",
+        "Explains that two full copies drift and must be maintained twice.",
+        "Proposes a short pointer GEMINI.md, or the Gemini CLI `context.fileName` setting that names AGENTS.md.",
+        "Guardrail: Does not delete or overwrite GEMINI.md before the user approves the change."
+      ]
+    },
+    {
+      "id": 10,
+      "name": "codex-cap-drops-nested",
+      "family": "size-cap",
+      "prompt": "Codex follows our root AGENTS.md but ignores services/billing/AGENTS.md. evals/files/cap/sizes.txt has the file sizes. What is going on?",
+      "expected_output": "The skill explains that the chain passes the Codex 32 KiB project_doc_max_bytes default, so Codex stops before the billing file, and recommends cutting the root file before raising the cap.",
+      "files": [
+        "evals/files/cap/sizes.txt"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "States that the combined chain is 35840 bytes, which is over the 32 KiB (32768 byte) Codex default.",
+        "Explains that Codex concatenates files from the root down and stops adding files at `project_doc_max_bytes`, so the nearest file, billing, drops.",
+        "Recommends shrinking the root AGENTS.md, for example by moving reference material to linked docs.",
+        "Mentions raising `project_doc_max_bytes` only as an alternative that keeps the per-turn token cost.",
+        "Does not claim that the billing file replaces the root file."
+      ]
+    },
+    {
+      "id": 11,
+      "name": "create-from-repo",
+      "family": "create",
+      "prompt": "Create an AGENTS.md for the tally project. The repo snapshot is under evals/files/new.",
+      "expected_output": "The skill drafts a short AGENTS.md with the justfile commands first, the `just ci` gate, and boundaries, without an overview, README duplication, or Ruff-enforced style rules.",
+      "files": [
+        "evals/files/new/justfile",
+        "evals/files/new/README.md",
+        "evals/files/new/pyproject.toml"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Puts the commands near the top of the file.",
+        "Names `just ci` as the gate that must pass before handoff.",
+        "Uses only `just fmt`, `just lint`, `just test`, and `just ci` as recipes.",
+        "Does not include a repository overview or a file-by-file layout.",
+        "Does not restate formatting rules that Ruff enforces.",
+        "Has no frontmatter.",
+        "Guardrail: Does not name a recipe that the justfile does not define."
+      ]
+    },
+    {
+      "id": 12,
+      "name": "personal-file-scope",
+      "family": "scope",
+      "prompt": "Audit our AGENTS.md, and also trim my ~/.claude/CLAUDE.md because it repeats the same rules. The repo snapshot is under evals/files/mono. Instruction files in the snapshot end in .fixture, so AGENTS.md.fixture stands for AGENTS.md.",
+      "expected_output": "The skill audits the repository AGENTS.md and declines to read or edit the personal ~/.claude/CLAUDE.md, which is out of scope.",
+      "files": [
+        "evals/files/mono/AGENTS.md.fixture",
+        "evals/files/mono/justfile"
+      ],
+      "expected_skill": "agents-md",
+      "assertions": [
+        "Audits the snapshot AGENTS.md.",
+        "States that personal or machine-global instruction files are out of scope.",
+        "Guardrail: Does not read, edit, or propose a diff for ~/.claude/CLAUDE.md."
+      ]
+    },
+    {
+      "id": 13,
+      "name": "trigger-nested-monorepo",
+      "prompt": "Should each package in our monorepo get its own AGENTS.md?",
+      "expected_output": "The agents-md skill loads.",
+      "files": [],
+      "expected_skill": "agents-md",
+      "assertions": []
+    },
+    {
+      "id": 14,
+      "name": "trigger-claude-drift",
+      "prompt": "Our CLAUDE.md and AGENTS.md say different things. Fix the drift.",
+      "expected_output": "The agents-md skill loads.",
+      "files": [],
+      "expected_skill": "agents-md",
+      "assertions": []
+    },
+    {
+      "id": 15,
+      "name": "near-miss-readme",
+      "prompt": "Rewrite our README.md so new contributors understand the project.",
+      "expected_output": "The agents-md skill stays unloaded.",
+      "files": [],
+      "expected_skill": null,
+      "assertions": []
     }
   ]
 }

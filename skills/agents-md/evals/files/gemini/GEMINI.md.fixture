@@ -1,0 +1,9 @@
+# Agent instructions
+
+## Commands
+
+- Test: `just test`
+
+## Conventions
+
+- Use Conventional Commits.
