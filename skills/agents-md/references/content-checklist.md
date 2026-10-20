@@ -37,16 +37,15 @@ as an operational README for agents, not a second product README
   a false positive.
 - Long reference material that belongs in a linked doc instead of inline,
   such as detailed API documentation. Name the doc and when to read it.
-  Every harness loads the full file on every turn
-  (<https://code.claude.com/docs/en/memory>;
-  <https://developers.openai.com/codex/guides/agents-md/>), so length is a
-  recurring token cost, not a one-time read. Claude Code's guidance lists
-  "Detailed API documentation (link to docs instead)" under exclude
-  (<https://code.claude.com/docs/en/best-practices>).
+  Applicable instructions consume context when loaded; harnesses differ in
+  when they load files. Do not assume every file loads on every turn or equate
+  context use with billed tokens. Claude Code's guidance excludes detailed
+  API documentation (<https://code.claude.com/docs/en/best-practices>).
 - Repository overviews and file-by-file layout descriptions. Claude Code's
-  guidance excludes "File-by-file descriptions of the codebase"
-  (<https://code.claude.com/docs/en/best-practices>). The ETH preprint
-  below found that repository overviews do not help.
+  guidance excludes file-by-file descriptions
+  (<https://code.claude.com/docs/en/best-practices>). The ETH overview
+  ablation found no statistically significant accuracy effect for GPT-5.2;
+  it does not establish that overviews never help.
 - Style rules that a linter or formatter already enforces. The gate command
   already catches each violation.
 - Anything that only CI or sandboxing should enforce (a rule an agent
@@ -62,20 +61,21 @@ Do not present `AGENTS.md` as a guaranteed task-success lift. Two 2026
 preprints reach different conclusions using different benchmarks and
 methods:
 
-- One preprint reports lower median runtime (28.64%) and lower output
-  token use (16.58%) on 124 pull requests in 10 repositories, with
-  comparable task completion. The finding is correlational.
-  Source: <https://arxiv.org/abs/2601.20404> ("On the Impact of AGENTS.md
-  Files on the Efficiency of AI Coding Agents")
-- The ETH Zurich and LogicStar.ai preprint reports that context files do
-  not generally improve task success rates and raise inference cost by
-  over 20% on average. It finds them useful for non-standard
-  coding practices, and finds repository overviews unhelpful.
-  Source: <https://arxiv.org/abs/2602.11988> ("Evaluating AGENTS.md: Are
-  Repository-Level Context Files Helpful for Coding Agents?")
+- A Codex study using `gpt-5.2-codex` on 124 pull requests in 10 repositories
+  associates `AGENTS.md` with 28.64% lower median runtime and 16.58% fewer
+  output tokens. Comparable completion rests on a manual sanity check; the
+  study does not establish semantic correctness or PR equivalence.
+  Source: <https://arxiv.org/html/2601.20404v2> (30 March 2026).
+- In the ETH Zurich and LogicStar.ai study, LLM-generated context files
+  raised mean inference cost by 20% on SWE-bench Lite and 23% on CTXbench.
+  Developer-written files also raised cost, but not by those same rates.
+  Neither file type showed a statistically significant success difference
+  from no file in those comparisons. The GPT-5.2 overview ablation also
+  found no significant accuracy difference, not proof of equivalence.
+  Source: <https://arxiv.org/html/2602.11988v3> (29 September 2026).
 
-Keep the file for the token-cost and precedence reasons in
-`harness-matrix.md`, not on a promised task-success guarantee.
+Keep useful repository rules, but do not promise a task-success gain or a
+fixed token saving. See `harness-matrix.md` for loading and precedence.
 
 ## Nested AGENTS.md
 
