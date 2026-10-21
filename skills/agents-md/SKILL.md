@@ -37,13 +37,15 @@ harness-neutral, no frontmatter.
 ## Why AGENTS.md hygiene matters
 
 AGENTS.md is a vendor-neutral, plain-Markdown convention with no required
-fields ([agents.md](https://agents.md)). Every major harness loads the file
-in full on every turn, so its length is a per-run token cost, not a one-time
-readability cost. A stale command or a bloated file taxes every future turn.
+fields ([agents.md](https://agents.md)). Harnesses load applicable files at
+different times. Loaded text uses context, so keep instructions concise and
+commands current. Do not equate loaded context with billed tokens or assume
+every file loads on every turn.
 
-Effectiveness evidence is mixed: keep the file for the token-cost and
-precedence reasons above, not on a promise of a guaranteed task-success
-lift. See `references/harness-matrix.md` for the sourced detail.
+Effectiveness evidence is mixed. Keep repository rules that help agents act,
+not rules based on a promised task-success gain. See
+`references/harness-matrix.md` for loading behavior and
+`references/content-checklist.md` for study limits.
 
 ---
 
@@ -153,8 +155,8 @@ harness replaces the root file with the nested file. The nearer file wins
 only on conflict. See `references/harness-matrix.md` for each harness.
 
 - Put only the subtree's delta in the nested file: its own commands,
-  boundaries, and exceptions. A copied root rule loads twice on every turn
-  and drifts.
+  boundaries, and exceptions. A copied root rule duplicates context when
+  both files load and can drift.
 - State each exception to a root rule explicitly, and name the root rule
   that it replaces. VS Code warns that harnesses do not share one
   precedence order.
