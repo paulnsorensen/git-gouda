@@ -1,0 +1,44 @@
+# Arms GitHub auto-merge on Dependabot minor and patch PRs when they open.
+# Major updates stay open for a human.
+# Source: the bot-dependency-automerge skill.
+name: dependabot-automerge
+
+on: pull_request
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  arm:
+    name: arm auto-merge
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == github.event.pull_request.head.repo.full_name
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # gh pr merge --auto needs write access to merge.
+      pull-requests: write # gh pr merge --auto changes the pull request.
+    steps:
+      - name: Read Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+      - name: Arm auto-merge for minor and patch updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |-
+          # Arm only while a required check or review blocks the PR.
+          # When nothing blocks it, gh merges at once instead of arming.
+          state=UNKNOWN
+          for _ in 1 2 3 4 5 6; do
+            state=$(gh pr view "$PR_URL" --json mergeStateStatus --jq .mergeStateStatus)
+            [ "$state" != UNKNOWN ] && break
+            sleep 10
+          done
+          if [ "$state" != BLOCKED ]; then
+            echo "::notice::Merge state is $state, not BLOCKED. Auto-merge is not armed; a human merges this PR."
+            exit 0
+          fi
+          gh pr merge --auto --squash "$PR_URL"

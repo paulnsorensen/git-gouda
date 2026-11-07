@@ -16,6 +16,7 @@ See [PROVENANCE.md](PROVENANCE.md) for import sources and intentional adaptation
 | [gh-bootstrap](skills/gh-bootstrap/SKILL.md) | Configure merge defaults, rulesets, release notes, and optional release automation. |
 | [safe-settings](skills/safe-settings/SKILL.md) | Scaffold shared GitHub settings-as-code with safe-settings. |
 | [config-review-bot](skills/config-review-bot/SKILL.md) | Configure and audit CodeRabbit repository review policy. |
+| [bot-dependency-automerge](skills/bot-dependency-automerge/SKILL.md) | Audit a dependency bot and arm auto-merge on minor and patch updates when the PR opens. |
 
 Each skill includes its complete references, templates, and evals. The validators reject missing resources and catalog drift.
 

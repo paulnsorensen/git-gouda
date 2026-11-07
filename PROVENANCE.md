@@ -4,11 +4,12 @@ The four initial repository skills come from skillz-that-grillz commit 6515e9119
 
 ## Intentional adaptations
 
-- The catalog contains exactly five repository-only skills.
+- The catalog contains exactly six repository-only skills.
 - gh-bootstrap defaults to a no-queue PR and CI ruleset. Merge queues require an eligible organization-owned repository and plan.
 - safe-settings follows the renamed github-community-projects/safe-settings repository at pinned release 2.1.17. Its workflow uses Node 22 and npm ci.
 - safe-settings labels.exclude uses the pinned schema shape: a list of objects with a `name` regex. Its reference documents identity-based array merging.
 - config-review-bot is new and covers CodeRabbit only. It separates schema validity, path coverage, and completed-review evidence.
+- bot-dependency-automerge is new. It comes from failed bot-PR merges in a daily cloud routine and a cited research run on 2026-11-04. Its sources are in `skills/bot-dependency-automerge/references/evidence.md`.
 - Copilot files, personal setup, agent orchestration, and unrelated source skills are excluded.
 - Imported manifests remove harness-specific model, context, and tool-routing metadata so installations remain portable across agents.
 
