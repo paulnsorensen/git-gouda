@@ -69,7 +69,7 @@ The text after the skill name is an optional `owner/repo`. Without it, use the r
    Ask before any settings or ruleset change. Name the exact change in the question.
    Done when each missing precondition is named with its effect and its fix.
 
-4. **Set up the arm-at-open path** for each active bot. With a merge queue, first apply the changes in `references/merge-queues.md`. With a third-party queue, never arm GitHub auto-merge.
+4. **Set up the arm-at-open path** for each active bot. With a merge queue, copy the files below first, then apply the changes in `references/merge-queues.md`. With a third-party queue, never arm GitHub auto-merge.
    - **Dependabot:** copy `assets/dependabot-automerge.yml` to `.github/workflows/dependabot-automerge.yml`.
      Keep the default 3-day cooldown. Do not set a lower cooldown. Make sure `.github/dependabot.yml` lists the `github-actions` ecosystem.
    - **Renovate:** append the rule in `assets/renovate-automerge.json` to `packageRules` in the existing config file.

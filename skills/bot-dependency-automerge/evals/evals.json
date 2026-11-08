@@ -189,6 +189,7 @@
       "assertions": [
         "The audit reads the merge_queue rule from the rules API.",
         "The answer states that GITHUB_TOKEN cannot add a PR to the merge queue and applies references/github-app-token.md.",
+        "The arm step in the written workflow sets GH_TOKEN to steps.app-token.outputs.token, not github.token.",
         "The answer checks required-check workflows for the merge_group trigger and asks before it adds one.",
         "The answer does not rely on a BLOCKED merge state on the queue branch."
       ]
