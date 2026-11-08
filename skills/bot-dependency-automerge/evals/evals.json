@@ -1,0 +1,244 @@
+{
+  "skill_name": "bot-dependency-automerge",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "kind": "task",
+      "family": "dependabot-setup",
+      "prompt": "Dependabot PRs pile up green in this repo. Set it up so minor and patch bumps merge on their own.",
+      "expected_output": "The skill audits the repository, writes the arm-at-open Dependabot workflow from the asset with SHA-pinned actions, and reports missing preconditions.",
+      "files": ["evals/files/dependabot.yml"],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The audit names the active bot from recent PR authors, not only from the config file.",
+        "The audit reports allow_auto_merge, the allowed merge methods, and the required checks for the bot PR base branch.",
+        "The workflow triggers on pull_request and gates on github.event.pull_request.user.login == 'dependabot[bot]'.",
+        "The workflow arms only version-update:semver-minor and version-update:semver-patch.",
+        "Every uses: line pins a 40-character commit SHA with a version comment.",
+        "The report adds the github-actions ecosystem to dependabot.yml or names it as missing."
+      ]
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "kind": "near-miss",
+      "prompt": "Add a dependabot.yml, OpenSSF Scorecard, and community health files to this new open-source repo.",
+      "expected_output": "The bot-dependency-automerge skill stays unloaded; the request belongs to /oss-hygiene.",
+      "files": [],
+      "expected_skill": null,
+      "assertions": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "kind": "task",
+      "family": "approval",
+      "prompt": "Turn on allow_auto_merge, add a ruleset that requires CI, and merge the three green Dependabot PRs right now.",
+      "expected_output": "The skill reports the settings and ruleset changes it would make and asks for explicit approval. It merges no PR.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The run makes no gh pr merge call without --auto.",
+        "The run asks for approval before it changes allow_auto_merge or a ruleset, and names each change.",
+        "The run routes the ruleset change to /gh-bootstrap or asks before it makes the change."
+      ]
+    },
+    {
+      "id": 4,
+      "name": "trigger-auto-merge-dependabot",
+      "kind": "trigger",
+      "prompt": "auto-merge dependabot in this repo",
+      "expected_output": "The bot-dependency-automerge skill loads.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": []
+    },
+    {
+      "id": 5,
+      "name": "trigger-automerge-renovate",
+      "kind": "trigger",
+      "prompt": "automerge renovate minor and patch updates",
+      "expected_output": "The bot-dependency-automerge skill loads.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": []
+    },
+    {
+      "id": 6,
+      "name": "trigger-prs-never-merge",
+      "kind": "trigger",
+      "prompt": "dependabot PRs never merge, even when CI is green",
+      "expected_output": "The bot-dependency-automerge skill loads.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": []
+    },
+    {
+      "id": 7,
+      "name": "trigger-set-up",
+      "kind": "trigger",
+      "prompt": "set up bot dependency auto-merge",
+      "expected_output": "The bot-dependency-automerge skill loads.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": []
+    },
+    {
+      "id": 8,
+      "name": "trigger-audit",
+      "kind": "trigger",
+      "prompt": "audit dependency bot auto-merge for this repo",
+      "expected_output": "The bot-dependency-automerge skill loads.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": []
+    },
+    {
+      "id": 9,
+      "name": "near-miss-rulesets",
+      "kind": "near-miss",
+      "prompt": "Add a ruleset that requires CI on main and switch the repo to squash-only merges.",
+      "expected_output": "The bot-dependency-automerge skill stays unloaded; the request belongs to /gh-bootstrap.",
+      "files": [],
+      "expected_skill": null,
+      "assertions": []
+    },
+    {
+      "id": 10,
+      "name": "near-miss-org-rollout",
+      "kind": "near-miss",
+      "prompt": "Apply the same merge settings and branch protection to all 40 repositories in our org as code.",
+      "expected_output": "The bot-dependency-automerge skill stays unloaded; the request belongs to /safe-settings.",
+      "files": [],
+      "expected_skill": null,
+      "assertions": []
+    },
+    {
+      "id": 11,
+      "name": "renovate-opt-out",
+      "kind": "task",
+      "family": "renovate-setup",
+      "prompt": "Renovate is our bot. Make minor and patch updates merge automatically.",
+      "expected_output": "The skill finds automerge: false in the Renovate config and asks before it adds the automerge rule.",
+      "files": ["evals/files/renovate.json"],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The run names the existing automerge: false setting.",
+        "The run asks before it appends a packageRules entry that overrides the opt-out.",
+        "The proposed rule matches only minor and patch updates and sets minimumReleaseAge to 3 days.",
+        "When the audit finds a required check on BASE, the run does not set platformAutomerge to false."
+      ]
+    },
+    {
+      "id": 12,
+      "name": "spoofable-gate",
+      "kind": "task",
+      "family": "workflow-hardening",
+      "prompt": "We already have an automerge workflow for Dependabot. Check it and fix what is wrong.",
+      "expected_output": "The skill replaces pull_request_target and the github.actor gate, and pins every action to a commit SHA.",
+      "files": ["evals/files/actor-automerge.yml"],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The run flags the github.actor check as spoofable and replaces it with github.event.pull_request.user.login.",
+        "The run replaces pull_request_target with pull_request.",
+        "The run replaces the dependabot/fetch-metadata@v2 tag pin with a 40-character commit SHA and a version comment.",
+        "The fixed workflow arms only minor and patch updates."
+      ]
+    },
+    {
+      "id": 13,
+      "name": "no-required-checks",
+      "kind": "task",
+      "family": "preconditions",
+      "prompt": "Set up Dependabot auto-merge. Our main branch has no branch protection and no rulesets.",
+      "expected_output": "The skill writes the workflow and reports that without a required check the guard does not arm, so PRs stay open until a required check exists.",
+      "files": ["evals/files/dependabot.yml"],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The report names the missing required status check as a precondition with its effect.",
+        "The report states that the workflow guard does not arm, so Dependabot PRs stay open until a required check exists.",
+        "The run does not create a ruleset or branch protection without approval."
+      ]
+    },
+    {
+      "id": 14,
+      "name": "push-workflows-after-merge",
+      "kind": "task",
+      "family": "token",
+      "prompt": "Our release workflow runs on push to main. Will it still run after Dependabot PRs auto-merge?",
+      "expected_output": "The skill explains the GITHUB_TOKEN limit, states that the auto-merge actor is undocumented, gives a verification command, and offers the GitHub App token variant.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The answer states that GITHUB_TOKEN events start no new workflow runs.",
+        "The answer gives gh run list --event push as the check.",
+        "The answer offers actions/create-github-app-token pinned to a commit SHA, with secrets stored as Dependabot secrets."
+      ]
+    },
+    {
+      "id": 15,
+      "name": "github-merge-queue",
+      "kind": "task",
+      "family": "merge-queue",
+      "prompt": "Set up Dependabot auto-merge for minor and patch updates. Our org repo's main branch requires the GitHub merge queue.",
+      "expected_output": "The skill reports the merge_queue rule and its merge method, requires the GitHub App token because GITHUB_TOKEN cannot enqueue, checks that required-check workflows have the merge_group trigger, and keeps the template, which runs gh pr merge --auto without a merge method on a queue branch.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The audit reads the merge_queue rule from the rules API.",
+        "The answer states that GITHUB_TOKEN cannot add a PR to the merge queue and applies references/github-app-token.md.",
+        "The arm step in the written workflow sets GH_TOKEN to steps.app-token.outputs.token, not github.token.",
+        "The answer checks required-check workflows for the merge_group trigger and asks before it adds one.",
+        "The answer does not rely on a BLOCKED merge state on the queue branch."
+      ]
+    },
+    {
+      "id": 16,
+      "name": "third-party-merge-queue",
+      "kind": "task",
+      "family": "merge-queue",
+      "prompt": "We merge everything through Mergify. Auto-merge our Renovate and Dependabot minor and patch PRs.",
+      "expected_output": "The skill detects Mergify from its config file or check runs, does not arm GitHub auto-merge, sets QUEUE_LABEL in the Dependabot template, uses the Renovate label rule with automerge false, and asks before it changes the Mergify config.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The answer never runs or writes gh pr merge --auto for this repository.",
+        "The Renovate rule sets automerge to false and adds the queue label for minor and patch only.",
+        "The Dependabot template sets QUEUE_LABEL.",
+        "The answer asks before it changes the Mergify config, and majors get no label."
+      ]
+    },
+    {
+      "id": 17,
+      "name": "workflow-file-update",
+      "kind": "task",
+      "family": "token",
+      "prompt": "The auto-merge workflow fails on Dependabot github-actions PRs with 'refusing to allow a GitHub App to create or update workflow without workflows permission'. Fix it.",
+      "expected_output": "The skill explains that arming a PR that changes a workflow file needs the workflows scope, keeps actions: write in the template job, and offers the App token variant with permission-workflows: write.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The answer states that GITHUB_TOKEN cannot request a workflows permission.",
+        "The template job keeps actions: write, and the answer marks that fix as user-reported.",
+        "The App token variant requests permission-workflows: write."
+      ]
+    },
+    {
+      "id": 18,
+      "name": "renovate-no-required-checks",
+      "kind": "task",
+      "family": "renovate-setup",
+      "prompt": "Renovate runs on this repo. main has no ruleset, no branch protection, and no merge queue. Auto-merge minor and patch updates.",
+      "expected_output": "The skill reports that main has no required check, adds the minor and patch rule with platformAutomerge set to false so Renovate merges only after every status check passes, and offers a required check through gh-bootstrap.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The audit reports required checks on main as none.",
+        "The Renovate rule sets platformAutomerge to false, matches only minor and patch, and sets minimumReleaseAge to 3 days.",
+        "The answer does not add a ruleset or branch protection without approval."
+      ]
+    }
+  ]
+}

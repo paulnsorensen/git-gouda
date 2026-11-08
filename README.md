@@ -29,6 +29,7 @@ See [PROVENANCE.md](PROVENANCE.md) for import sources and intentional adaptation
 | [branch-cleanup](skills/branch-cleanup/SKILL.md) | Configure branch deletion on merge and report stale branches. |
 | [agents-md](skills/agents-md/SKILL.md) | Create, audit, and trim AGENTS.md and its harness mirrors. |
 | [repo-audit](skills/repo-audit/SKILL.md) | Run a read-only audit of every catalog skill's checks and report gaps. |
+| [bot-dependency-automerge](skills/bot-dependency-automerge/SKILL.md) | Audit a dependency bot and arm auto-merge on minor and patch updates when the PR opens. |
 
 Each skill includes its complete references, templates, and evals. The validators reject missing resources and catalog drift.
 

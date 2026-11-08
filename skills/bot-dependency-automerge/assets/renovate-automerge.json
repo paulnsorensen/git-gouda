@@ -1,0 +1,10 @@
+{
+  "packageRules": [
+    {
+      "description": "Auto-merge minor and patch updates after a 3-day release age. Major updates stay manual.",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    }
+  ]
+}
