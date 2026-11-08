@@ -2,13 +2,27 @@
 
 The four initial repository skills come from skillz-that-grillz commit 6515e91194227d6ea641a0064c979bb58823331e.
 
+## Second import
+
+- release, justfile, and github-copilot-repo-instructions come from skillz-that-grillz commit 6515e91194227d6ea641a0064c979bb58823331e.
+- ci-optimize and build-optimize come from dotfiles commit d87fe29a6ae9210a57a5570f0fa833f3a7bc5dc6.
+- Imported manifests keep only `license`, `name`, and `description`.
+- References to skills outside this catalog use neutral prose.
+- build-optimize describes the ci-optimize adapter files in prose because bundled links must stay inside one skill directory.
+
+## Original skills
+
+codeowners, actions-pinning, pr-title-lint, labels-as-code, repo-attributes, branch-cleanup, agents-md, and repo-audit are new in this catalog.
+Each skill cites its primary sources in its own references directory.
+The research notes that informed them are summarized in each skill's references.
+
 ## Intentional adaptations
 
-- The catalog contains exactly six repository-only skills.
+- The catalog contains exactly nineteen repository-only skills.
 - gh-bootstrap defaults to a no-queue PR and CI ruleset. Merge queues require an eligible organization-owned repository and plan.
 - safe-settings follows the renamed github-community-projects/safe-settings repository at pinned release 2.1.17. Its workflow uses Node 22 and npm ci.
 - safe-settings labels.exclude uses the pinned schema shape: a list of objects with a `name` regex. Its reference documents identity-based array merging.
-- config-review-bot is new and covers CodeRabbit only. It separates schema validity, path coverage, and completed-review evidence.
+- config-review-bot is new and covers CodeRabbit only. It separates schema validity, rule quality, and completed-review evidence. Its validation, rule-quality, red-flag, and output guidance is adapted from the author's personal `coderabbit` skill in paulnsorensen/dotfiles.
 - bot-dependency-automerge is new. It comes from failed bot-PR merges in a daily cloud routine and a cited research run on 2026-11-04. Its sources are in `skills/bot-dependency-automerge/references/evidence.md`.
 - Copilot files, personal setup, agent orchestration, and unrelated source skills are excluded.
 - Imported manifests remove harness-specific model, context, and tool-routing metadata so installations remain portable across agents.

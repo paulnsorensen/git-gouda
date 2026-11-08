@@ -1,0 +1,4 @@
+$ wc -c AGENTS.md services/billing/AGENTS.md
+26624 AGENTS.md
+ 9216 services/billing/AGENTS.md
+35840 total

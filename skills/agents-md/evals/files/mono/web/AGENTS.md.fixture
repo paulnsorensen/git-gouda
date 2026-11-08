@@ -1,0 +1,18 @@
+# Agent instructions for web
+
+## Commands
+
+- Test every package: `just test`
+- Lint every package: `just lint`
+- Start the web dev server: `just web-dev`
+
+## Conventions
+
+- Use TypeScript strict mode.
+- Use Conventional Commits.
+- Never commit secrets or .env files.
+- Use CSS modules for component styles.
+
+## Quality gate
+
+`just ci` must exit 0 before you hand off work.

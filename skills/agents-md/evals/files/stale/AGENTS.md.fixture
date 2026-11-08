@@ -1,0 +1,14 @@
+# Agent instructions
+
+## Commands
+
+- Build: `just build`
+- Test: `just test`
+- Lint: `just lint-all`
+
+Run `just lint-all` and `just test` before you open a pull request.
+
+## Conventions
+
+- Follow the setup steps in `docs/setup.md`.
+- Use Conventional Commits.

@@ -1,0 +1,7 @@
+# Claude instructions
+
+## Commands
+
+- Test: `just test`
+
+Run tests with `just test` before each commit.

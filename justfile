@@ -27,6 +27,8 @@ _gate mode:
     step template-tests python3 .github/scripts/test_templates.py
     step skills python3 .github/scripts/validate_skills.py
     step evals python3 .github/scripts/validate_evals.py
+    script_self_tests() { local s; for s in skills/*/scripts/*.py; do python3 "$s" --self-test || return 1; done; }
+    step script-self-tests script_self_tests
     if [ "{{mode}}" = "fix" ]; then
         step prek prek run --all-files
     else

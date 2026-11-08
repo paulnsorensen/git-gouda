@@ -1,0 +1,17 @@
+# Dependabot github-actions ecosystem entry.
+# Merge this into the repository's dependabot.yml under `updates:`.
+# For the full dependabot.yml scaffold (all ecosystems), use /oss-hygiene.
+#
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Version updates default to a 3-day registry-availability cooldown as of
+# 2026-07-14 (see references/policy.md). Security updates are exempt and
+# still open immediately. Set `cooldown.default-days: 0` to opt out.
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 5
+  groups:
+    actions-minor-and-patch:
+      update-types: [minor, patch]

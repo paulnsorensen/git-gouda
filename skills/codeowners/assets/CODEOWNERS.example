@@ -1,0 +1,17 @@
+# CODEOWNERS example
+#
+# Rules are evaluated top to bottom; the LAST matching rule for a given
+# path wins. Put broad defaults first, specific overrides last.
+
+# Default owner for anything not matched below.
+* @org/default-owners
+
+# Frontend
+/frontend/ @org/frontend-team
+
+# Infrastructure and CI
+/.github/ @org/platform-team
+/infra/ @org/platform-team
+
+# A specific file that needs a narrower owner than its directory default.
+/infra/secrets.tf @org/security-team

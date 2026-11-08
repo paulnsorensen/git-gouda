@@ -1,0 +1,12 @@
+# Ledgerly recipes.
+test:
+    uv run pytest
+
+lint:
+    uv run ruff check .
+    uv run ruff format --check .
+
+migration:
+    uv run alembic revision --autogenerate
+
+ci: lint test

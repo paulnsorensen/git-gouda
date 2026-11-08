@@ -1,0 +1,29 @@
+# Normalize line endings for all text files; Git decides text vs binary.
+* text=auto
+
+# Force LF for scripts and config that must never gain CRLF.
+*.sh text eol=lf
+*.py text eol=lf
+Makefile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Mark binary files explicitly; skip line-ending and diff conversion.
+*.png binary
+*.jpg binary
+*.pdf binary
+
+# Tell GitHub linguist to reclassify these paths for language stats and PR diffs.
+dist/** linguist-generated
+vendor/** linguist-vendored
+docs/** linguist-documentation
+
+# Union-merge CHANGELOG entries instead of conflicting on every release.
+CHANGELOG.md merge=union
+
+# Exclude development-only paths from `git archive` exports.
+.github/ export-ignore
+tests/ export-ignore
+
+# Route large binary assets through Git LFS (requires `git lfs install`).
+*.psd filter=lfs diff=lfs merge=lfs -text

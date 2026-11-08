@@ -1,0 +1,9 @@
+// Example commitlint config for local commit-message linting via prek.
+// Copy to commitlint.config.js and wire it into prek.toml as a
+// commit-msg hook; this skill only scaffolds the PR-title CI check.
+module.exports = {
+  extends: ['@commitlint/config-conventional'],
+  rules: {
+    'subject-case': [2, 'never', ['upper-case']],
+  },
+};

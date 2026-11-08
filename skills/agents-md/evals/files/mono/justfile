@@ -1,0 +1,16 @@
+# Monorepo recipes.
+test: web-test api-test
+
+lint:
+    pnpm -r lint
+
+web-test:
+    pnpm --filter web test
+
+web-dev:
+    pnpm --filter web dev
+
+api-test:
+    pnpm --filter api test
+
+ci: lint test

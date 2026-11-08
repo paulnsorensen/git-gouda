@@ -1,0 +1,38 @@
+name: pr-title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  # A merge queue waits for every required check on the merge group.
+  # The job-level `if` skips the job there, and GitHub counts a skipped job as success.
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    name: pr-title
+    if: github.event_name == 'pull_request'
+    permissions:
+      pull-requests: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          # Restrict to these Conventional Commits types (uncomment and edit):
+          # types: |
+          #   feat
+          #   fix
+          #   docs
+          #   chore
+          # Restrict to these scopes (uncomment and edit):
+          # scopes: |
+          #   api
+          #   ui
+          requireScope: false
+          # Reject a subject that starts with an uppercase letter:
+          # subjectPattern: ^(?![A-Z]).+$

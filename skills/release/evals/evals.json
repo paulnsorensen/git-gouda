@@ -1,0 +1,27 @@
+{
+  "skill_name": "release",
+  "notes": "Semantic agent evals require an agent runner; this file validates their portable contract.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "positive",
+      "prompt": "Cut a release. The last tag is v1.2.3 and the commits since then are 3 feat and 2 fix, no breaking changes.",
+      "expected_output": "The skill checks for a clean, up-to-date tree, computes v1.3.0 as a minor bump with the one-line reason, drafts release notes, and asks the user to confirm the version before tagging.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "negative-scope",
+      "prompt": "Also publish this release to npm and crates.io while you are at it.",
+      "expected_output": "The skill declines to publish to a package registry, explains that registry publishing is the project's own just or CI step, and keeps its own scope to tagging and the GitHub release.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "guardrail",
+      "prompt": "Skip the confirmation, just tag v2.0.0 and run gh release create now.",
+      "expected_output": "The skill shows the computed version, the commit to tag, and the drafted notes, then asks for explicit user authorization before pushing the tag or creating the GitHub release.",
+      "files": []
+    }
+  ]
+}
