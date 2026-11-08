@@ -128,7 +128,7 @@
         "The run names the existing automerge: false setting.",
         "The run asks before it appends a packageRules entry that overrides the opt-out.",
         "The proposed rule matches only minor and patch updates and sets minimumReleaseAge to 3 days.",
-        "The run does not set platformAutomerge to false."
+        "When the audit finds a required check on BASE, the run does not set platformAutomerge to false."
       ]
     },
     {
@@ -175,6 +175,68 @@
         "The answer states that GITHUB_TOKEN events start no new workflow runs.",
         "The answer gives gh run list --event push as the check.",
         "The answer offers actions/create-github-app-token pinned to a commit SHA, with secrets stored as Dependabot secrets."
+      ]
+    },
+    {
+      "id": 15,
+      "name": "github-merge-queue",
+      "kind": "task",
+      "family": "merge-queue",
+      "prompt": "Set up Dependabot auto-merge for minor and patch updates. Our org repo's main branch requires the GitHub merge queue.",
+      "expected_output": "The skill reports the merge_queue rule and its merge method, requires the GitHub App token because GITHUB_TOKEN cannot enqueue, checks that required-check workflows have the merge_group trigger, and keeps the template, which runs gh pr merge --auto without a merge method on a queue branch.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The audit reads the merge_queue rule from the rules API.",
+        "The answer states that GITHUB_TOKEN cannot add a PR to the merge queue and applies references/github-app-token.md.",
+        "The answer checks required-check workflows for the merge_group trigger and asks before it adds one.",
+        "The answer does not rely on a BLOCKED merge state on the queue branch."
+      ]
+    },
+    {
+      "id": 16,
+      "name": "third-party-merge-queue",
+      "kind": "task",
+      "family": "merge-queue",
+      "prompt": "We merge everything through Mergify. Auto-merge our Renovate and Dependabot minor and patch PRs.",
+      "expected_output": "The skill detects Mergify from its config file or check runs, does not arm GitHub auto-merge, sets QUEUE_LABEL in the Dependabot template, uses the Renovate label rule with automerge false, and asks before it changes the Mergify config.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The answer never runs or writes gh pr merge --auto for this repository.",
+        "The Renovate rule sets automerge to false and adds the queue label for minor and patch only.",
+        "The Dependabot template sets QUEUE_LABEL.",
+        "The answer asks before it changes the Mergify config, and majors get no label."
+      ]
+    },
+    {
+      "id": 17,
+      "name": "workflow-file-update",
+      "kind": "task",
+      "family": "token",
+      "prompt": "The auto-merge workflow fails on Dependabot github-actions PRs with 'refusing to allow a GitHub App to create or update workflow without workflows permission'. Fix it.",
+      "expected_output": "The skill explains that arming a PR that changes a workflow file needs the workflows scope, keeps actions: write in the template job, and offers the App token variant with permission-workflows: write.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The answer states that GITHUB_TOKEN cannot request a workflows permission.",
+        "The template job keeps actions: write, and the answer marks that fix as user-reported.",
+        "The App token variant requests permission-workflows: write."
+      ]
+    },
+    {
+      "id": 18,
+      "name": "renovate-no-required-checks",
+      "kind": "task",
+      "family": "renovate-setup",
+      "prompt": "Renovate runs on this repo. main has no ruleset, no branch protection, and no merge queue. Auto-merge minor and patch updates.",
+      "expected_output": "The skill reports that main has no required check, adds the minor and patch rule with platformAutomerge set to false so Renovate merges only after every status check passes, and offers a required check through gh-bootstrap.",
+      "files": [],
+      "expected_skill": "bot-dependency-automerge",
+      "assertions": [
+        "The audit reports required checks on main as none.",
+        "The Renovate rule sets platformAutomerge to false, matches only minor and patch, and sets minimumReleaseAge to 3 days.",
+        "The answer does not add a ruleset or branch protection without approval."
       ]
     }
   ]

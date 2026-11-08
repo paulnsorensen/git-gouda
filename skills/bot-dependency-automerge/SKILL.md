@@ -3,6 +3,8 @@ name: bot-dependency-automerge
 description: >
   Audits a repository's dependency bot and arms GitHub auto-merge on Dependabot
   or Renovate minor and patch PRs when they open, with majors left to a human.
+  Supports GitHub merge queues and hands PRs to Mergify, Kodiak, Trunk, or
+  Aviator queues.
   Use when the user says "auto-merge dependabot", "automerge renovate minor and
   patch", "dependabot PRs never merge", "set up bot dependency auto-merge",
   "audit dependency bot auto-merge", or invokes /bot-dependency-automerge.
@@ -19,7 +21,7 @@ Arm GitHub auto-merge on each minor or patch dependency-bot PR when it opens, wh
 ## Why arm at open
 
 - GitHub offers auto-merge only on a PR that cannot merge yet. A later job that reaches a green PR cannot arm it.
-- `gh pr merge --auto` merges at once when nothing blocks the PR. Without required checks, that merge comes before CI.
+- `gh pr merge --auto` merges at once when the merge state is `CLEAN`, `HAS_HOOKS`, or `UNSTABLE`. Without required checks, that merge comes before CI.
 - Auto-merge waits only for required status checks and reviews. Other checks do not hold the merge.
 
 ## Scope
@@ -32,19 +34,21 @@ The text after the skill name is an optional `owner/repo`. Without it, use the r
 
 ## Flow
 
-1. **Audit.** The audit is read-only. Run these commands, and set `BASE` to the base branch of the recent bot PRs:
+1. **Audit.** The audit is read-only. Set `REPO` to the `owner/repo` input when one is given. Set `BASE` to the base branch of the recent bot PRs. Then run these commands:
 
    ```bash
-   R=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+   R=${REPO:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}
    gh api "repos/$R" --jq '{allow_auto_merge,allow_squash_merge,allow_merge_commit,allow_rebase_merge,default_branch}'
    gh pr list -R "$R" --state all --limit 50 --json author,baseRefName \
      --jq 'map(select(.author.is_bot)) | group_by(.author.login + " -> " + .baseRefName) | map({bot: .[0].author.login, base: .[0].baseRefName, prs: length})'
    gh api "repos/$R/rules/branches/$BASE" --jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context]'
    gh api "repos/$R/branches/$BASE" --jq '{protected, classic: (.protection.required_status_checks.checks // [] | map(.context))}'
+   gh api "repos/$R/rules/branches/$BASE" --jq '[.[] | select(.type == "merge_queue") | .parameters.merge_method]'
    ```
 
    Also list the bot config files: `.github/dependabot.yml`, `renovate.json`, `renovate.json5`, `.github/renovate.json`, `.github/renovate.json5`, `.renovaterc`, `.renovaterc.json`, and a `renovate` key in `package.json`.
-   Search `.github/workflows/` for `fetch-metadata`, `gh pr merge`, and `github.actor`.
+   Search `.github/workflows/` for `fetch-metadata`, `gh pr merge`, `github.actor`, and `merge_group`.
+   Find a third-party merge queue with the config files and check runs in `references/merge-queues.md`.
    Recent PR authors identify the active bot (`app/dependabot`, `app/renovate`). A config file alone does not, because the app can be uninstalled.
    A required check can come from a ruleset or from classic protection, so read both.
    A `null` value or an HTTP 404 means missing permission. Report it as `unknown`, not as `false` or `none`.
@@ -58,19 +62,19 @@ The text after the skill name is an optional `owner/repo`. Without it, use the r
    | Precondition | Effect when missing |
    | --- | --- |
    | `allow_auto_merge` is `true` | The Dependabot workflow cannot arm. Renovate falls back to merging on its own run after checks pass. |
-   | A required status check on `BASE` | The template guard does not arm, so PRs stay open. |
+   | A required status check on `BASE` | The template guard does not arm, so Dependabot PRs stay open. Renovate platform auto-merge can merge before tests finish. When the checks are `none` or `unknown` and `BASE` has no GitHub merge queue, add `"platformAutomerge": false` to the Renovate rule. Renovate then merges only after every status check passes. |
    | The merge method of the template is allowed | Change `--squash` to an allowed method. |
-   | `BASE` has no merge queue | `GITHUB_TOKEN` cannot enqueue a PR. Use `references/github-app-token.md`. |
+   | A GitHub merge queue on `BASE` has an App token and `merge_group` checks | `GITHUB_TOKEN` cannot add a PR to the queue. A required check without `merge_group` never reports, so the queue drops the PR. |
 
    Ask before any settings or ruleset change. Name the exact change in the question.
    Done when each missing precondition is named with its effect and its fix.
 
-4. **Set up the arm-at-open path** for each active bot.
+4. **Set up the arm-at-open path** for each active bot. With a merge queue, first apply the changes in `references/merge-queues.md`. With a third-party queue, never arm GitHub auto-merge.
    - **Dependabot:** copy `assets/dependabot-automerge.yml` to `.github/workflows/dependabot-automerge.yml`.
      Keep the default 3-day cooldown. Do not set a lower cooldown. Make sure `.github/dependabot.yml` lists the `github-actions` ecosystem.
    - **Renovate:** append the rule in `assets/renovate-automerge.json` to `packageRules` in the existing config file.
      A later rule overrides an earlier one. When the config sets `automerge: false` anywhere, stop and ask before you add the rule.
-     Keep the default `platformAutomerge`. Propose `helpers:pinGitHubActionDigests` in `extends` when the config does not pin action digests.
+     Keep the default `platformAutomerge` when `BASE` has a required check. Propose `helpers:pinGitHubActionDigests` in `extends` when the config does not pin action digests.
 
    Done when each written file parses, and the change adds only the arm-at-open path.
 
@@ -108,6 +112,7 @@ When a release or deploy workflow must run on push, offer `references/github-app
 | allow_auto_merge | true / false / unknown | repo API |
 | Merge methods | <allowed list> / unknown | repo API |
 | Required checks on <BASE> | <contexts> / none / unknown | rules and branch API |
+| Merge queue | github (<method>) / mergify / kodiak / trunk / aviator / graphite / bors-ng / none / unknown | rules API, config files, check runs |
 | Existing automation | <workflow paths> / none | workflow search |
 
 ### Missing preconditions
@@ -132,5 +137,6 @@ When a release or deploy workflow must run on push, offer `references/github-app
 
 ## References
 
-- `references/github-app-token.md` — read when push workflows must run after the merge, or `BASE` has a merge queue.
+- `references/merge-queues.md` — read when the audit finds a GitHub or third-party merge queue.
+- `references/github-app-token.md` — read when push workflows must run after the merge, or `BASE` has a GitHub merge queue.
 - `references/evidence.md` — read when the user asks why a default exists, or challenges one.

@@ -1,18 +1,18 @@
 # GitHub App token variant
 
-Read this when push workflows must run after an auto-merge, or when the base branch has a merge queue.
+Read this when push workflows must run after an auto-merge, or when the base branch has a GitHub merge queue.
 
 ## Why
 
-- Events that `GITHUB_TOKEN` triggers start no new workflow runs, except dispatch events. A GitHub App installation token or a personal access token avoids this limit.
-- A merge queue rejects `GITHUB_TOKEN`. The merge step needs a personal access token or a GitHub App token that can merge.
+- Events that `GITHUB_TOKEN` triggers start no new workflow runs, except `workflow_dispatch`, `repository_dispatch`, and approval-gated `pull_request` events. A GitHub App installation token or a personal access token avoids this limit.
+- `GITHUB_TOKEN` cannot add a PR to a GitHub merge queue. The merge step needs a personal access token or a GitHub App token that can merge.
 - Prefer a GitHub App over a personal access token. The App token expires after one hour and has only the permissions you request.
 
 ## Setup
 
 The user does these steps. The skill never creates an App or stores a key.
 
-1. Create a GitHub App with repository permissions **Contents: Read and write** and **Pull requests: Read and write**.
+1. Create a GitHub App with repository permissions **Contents: Read and write**, **Pull requests: Read and write**, and **Workflows: Read and write**. Workflows lets the App arm a PR that changes a workflow file.
 2. Install the App on the repository only.
 3. Store the client ID and the private key as **Dependabot** secrets. A Dependabot run reads only Dependabot secrets, not Actions secrets.
 
@@ -23,7 +23,7 @@ The user does these steps. The skill never creates an App or stores a key.
 
 ## Workflow change
 
-In `.github/workflows/dependabot-automerge.yml`, lower the job permissions to `contents: read` and `pull-requests: read`.
+In `.github/workflows/dependabot-automerge.yml`, lower the job permissions to `contents: read` and `pull-requests: read`, and remove `actions: write`.
 Add this step before the arm step:
 
 ```yaml
@@ -35,6 +35,7 @@ Add this step before the arm step:
           private-key: ${{ secrets.AUTOMERGE_APP_PRIVATE_KEY }}
           permission-contents: write
           permission-pull-requests: write
+          permission-workflows: write
 ```
 
 In the arm step, set `GH_TOKEN: ${{ steps.app-token.outputs.token }}`.
